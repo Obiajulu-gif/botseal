@@ -1,0 +1,60 @@
+# Dependencies
+**/node_modules/
+**/.pnp
+**/.pnp.js
+
+# Next.js
+**/.next/
+**/out/
+**/next-env.d.ts
+
+# TypeScript incremental build state
+*.tsbuildinfo
+
+# Hardhat / Solidity
+**/artifacts/
+**/artifacts-hardhat/
+**/cache/
+**/cache-fcc/
+**/typechain-types/
+**/coverage/
+coverage.json
+
+# Secrets — never commit
+**/.env
+**/.env.local
+**/.env.*.local
+!**/.env.example
+fcc/config/extension.env
+fcc/config/proxy/*.toml
+!fcc/config/proxy/*.toml.example
+fcc/**/private*
+*.pem
+*.key
+
+# Local-only deployment output. coston2.json IS committed: it holds public metadata only.
+contracts/deployments/local*.json
+contracts/deployments/*.local.json
+
+# FCC runtime state
+fcc/results/
+fcc/testing/agents/*/results/
+
+# Playwright
+**/test-results/
+**/playwright-report/
+**/.playwright/
+
+# Editors and OS
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

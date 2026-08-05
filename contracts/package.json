@@ -1,0 +1,41 @@
+{
+  "name": "flareseal-contracts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FlareSeal confidential invoice + FXRP escrow contracts for Flare Testnet Coston2",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "coverage": "hardhat coverage",
+    "clean": "hardhat clean",
+    "resolve:coston2": "hardhat run scripts/resolve-flare-addresses.ts --network coston2",
+    "deploy:coston2": "hardhat run scripts/deploy.ts --network coston2",
+    "configure-tee:coston2": "hardhat run scripts/configure-tee.ts --network coston2",
+    "smoke:coston2": "hardhat run scripts/smoke-coston2.ts --network coston2",
+    "export-abi": "hardhat run scripts/export-abi.ts",
+    "compile:fcc": "hardhat --config hardhat.fcc.config.ts compile",
+    "export-fcc-bindings": "node scripts/export-fcc-bindings.mjs"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
+    "@nomicfoundation/hardhat-ethers": "^3.0.8",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.12",
+    "@typechain/ethers-v6": "^0.5.1",
+    "@typechain/hardhat": "^9.1.0",
+    "@types/chai": "^4.3.20",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.10.2",
+    "chai": "^4.5.0",
+    "dotenv": "^16.4.7",
+    "ethers": "^6.13.5",
+    "hardhat": "^2.22.18",
+    "solidity-coverage": "^0.8.14",
+    "ts-node": "^10.9.2",
+    "typechain": "^8.3.2",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "@flarenetwork/flare-periphery-contracts": "^0.1.28",
+    "@openzeppelin/contracts": "^5.1.0"
+  }
+}
