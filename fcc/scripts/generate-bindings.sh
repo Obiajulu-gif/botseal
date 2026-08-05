@@ -26,10 +26,10 @@ ESCROW_PKG="escrow"
 ESCROW_DIR="$PROJECT_DIR/tools/pkg/contracts/$ESCROW_PKG"
 ESCROW_ARTIFACT="$PROJECT_DIR/../contracts/artifacts/contracts/FlareSealEscrow.sol/FlareSealEscrow.json"
 
-cd "$PROJECT_DIR"
+# Hardhat's equivalent of the forge artifact, produced by `npm run compile:fcc` in ../contracts.
+HARDHAT_OUT="$PROJECT_DIR/artifacts-hardhat/fcc/contracts/InstructionSender.sol/${CONTRACT_NAME}.json"
 
-echo "=== Step 1: Compile Solidity contracts ==="
-forge build
+cd "$PROJECT_DIR"
 
 # Verify the contract name in the source matches what we expect
 if ! grep -q "contract ${CONTRACT_NAME}" "$PROJECT_DIR/contracts/InstructionSender.sol" 2>/dev/null; then
@@ -39,21 +39,42 @@ if ! grep -q "contract ${CONTRACT_NAME}" "$PROJECT_DIR/contracts/InstructionSend
     exit 1
 fi
 
-echo "=== Step 2: Extract ABI and BIN ==="
-FORGE_OUT="$PROJECT_DIR/out/InstructionSender.sol/${CONTRACT_NAME}.json"
-if [[ ! -f "$FORGE_OUT" ]]; then
-    echo "ERROR: forge output not found at $FORGE_OUT"
-    echo "Check that CONTRACT_NAME matches your Solidity contract name."
-    exit 1
-fi
-
 mkdir -p "$BINDINGS_DIR"
 
-# Extract ABI (JSON array)
-jq '.abi' "$FORGE_OUT" > "$BINDINGS_DIR/${CONTRACT_NAME}.abi"
+# --- Steps 1-2: compile, then extract ABI and BIN --------------------------------
+#
+# Foundry is preferred, but it is not a hard requirement: the same contract is
+# compiled by ../contracts/hardhat.fcc.config.ts with identical solc settings.
+# Falling back keeps this pipeline usable on machines without Foundry (notably
+# WSL, where the FCC stack runs) instead of failing at step 0.
+#
+# The two toolchains nest bytecode differently: forge writes `.bytecode.object`,
+# Hardhat writes `.bytecode`.
+if command -v forge >/dev/null 2>&1; then
+    echo "=== Steps 1-2: Compile with forge and extract ABI/BIN ==="
+    forge build
 
-# Extract bytecode (hex string, strip 0x prefix)
-jq -r '.bytecode.object' "$FORGE_OUT" | sed 's/^0x//' > "$BINDINGS_DIR/${CONTRACT_NAME}.bin"
+    FORGE_OUT="$PROJECT_DIR/out/InstructionSender.sol/${CONTRACT_NAME}.json"
+    if [[ ! -f "$FORGE_OUT" ]]; then
+        echo "ERROR: forge output not found at $FORGE_OUT"
+        echo "Check that CONTRACT_NAME matches your Solidity contract name."
+        exit 1
+    fi
+
+    jq '.abi' "$FORGE_OUT" > "$BINDINGS_DIR/${CONTRACT_NAME}.abi"
+    jq -r '.bytecode.object' "$FORGE_OUT" | sed 's/^0x//' > "$BINDINGS_DIR/${CONTRACT_NAME}.bin"
+elif [[ -f "$HARDHAT_OUT" ]]; then
+    echo "=== Steps 1-2: forge not found — using the Hardhat artifact ==="
+    echo "  $HARDHAT_OUT"
+
+    jq '.abi' "$HARDHAT_OUT" > "$BINDINGS_DIR/${CONTRACT_NAME}.abi"
+    jq -r '.bytecode' "$HARDHAT_OUT" | sed 's/^0x//' > "$BINDINGS_DIR/${CONTRACT_NAME}.bin"
+else
+    echo "ERROR: neither forge nor a Hardhat artifact is available."
+    echo "Install Foundry, or build the artifact with:"
+    echo "    cd ../contracts && npm run compile:fcc"
+    exit 1
+fi
 
 echo "  ABI → $BINDINGS_DIR/${CONTRACT_NAME}.abi"
 echo "  BIN → $BINDINGS_DIR/${CONTRACT_NAME}.bin"

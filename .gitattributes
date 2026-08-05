@@ -1,0 +1,41 @@
+# Line-ending policy.
+#
+# This repo is developed on Windows but its FCC tooling runs under bash — in WSL,
+# in Docker containers, and in CI. A CRLF shell script fails with the notoriously
+# opaque:
+#
+#     /usr/bin/env: 'bash\r': No such file or directory
+#
+# git's core.autocrlf=true (the Windows default) rewrites these files on checkout,
+# so the policy has to be pinned per file type rather than left to local config.
+
+# Default: let git decide for text, but never touch anything it detects as binary.
+* text=auto
+
+# Must be LF — executed by bash or by a container entrypoint.
+*.sh            text eol=lf
+*.bash          text eol=lf
+*.py            text eol=lf
+Dockerfile*     text eol=lf
+*.dockerfile    text eol=lf
+language.env    text eol=lf
+*.env.example   text eol=lf
+Makefile        text eol=lf
+
+# Sourced or parsed inside Linux containers.
+*.yaml          text eol=lf
+*.yml           text eol=lf
+*.toml          text eol=lf
+
+# Go tooling is LF by convention.
+*.go            text eol=lf
+go.mod          text eol=lf
+go.sum          text eol=lf
+
+# Binary — never convert.
+*.png           binary
+*.jpg           binary
+*.gif           binary
+*.ico           binary
+*.pdf           binary
+*.wasm          binary
