@@ -90,9 +90,34 @@ jq '.abi' "$ESCROW_ARTIFACT" > "$ESCROW_DIR/${ESCROW_NAME}.abi"
 echo "  ABI → $ESCROW_DIR/${ESCROW_NAME}.abi"
 
 echo "=== Step 4: Generate Go bindings ==="
-cd "$PROJECT_DIR/tools"
-go generate ./pkg/contracts/...
+
+# Skip when the bindings already reflect the current contracts.
+#
+# `go:generate` shells out to `go run .../cmd/abigen`, which compiles abigen from
+# source on a cold module cache. That is several minutes on a normal disk and far
+# worse over a /mnt/c bind mount, and it is pure waste when nothing has changed —
+# pre-build.sh calls this script unconditionally on every run.
+#
+# Freshness is judged against the Solidity sources, since those are what determine
+# the ABI. Set FORCE_BINDINGS=1 to regenerate regardless.
+INSTRUCTION_SRC="$PROJECT_DIR/contracts/InstructionSender.sol"
+ESCROW_SRC="$PROJECT_DIR/../contracts/contracts/FlareSealEscrow.sol"
+
+bindings_are_current() {
+    [[ -f "$BINDINGS_DIR/autogen.go" && -f "$ESCROW_DIR/autogen.go" ]] || return 1
+    [[ "$BINDINGS_DIR/autogen.go" -nt "$INSTRUCTION_SRC" ]] || return 1
+    [[ "$ESCROW_DIR/autogen.go" -nt "$ESCROW_SRC" ]] || return 1
+    return 0
+}
+
+if [[ "${FORCE_BINDINGS:-0}" != "1" ]] && bindings_are_current; then
+    echo "  bindings are newer than both contract sources — skipping abigen"
+    echo "  (set FORCE_BINDINGS=1 to regenerate)"
+else
+    cd "$PROJECT_DIR/tools"
+    go generate ./pkg/contracts/...
+fi
 
 echo "=== Done ==="
-echo "Generated: $BINDINGS_DIR/autogen.go"
-echo "Generated: $ESCROW_DIR/autogen.go"
+echo "  $BINDINGS_DIR/autogen.go"
+echo "  $ESCROW_DIR/autogen.go"
