@@ -243,8 +243,20 @@ tests, and production build. No chain, wallet, or Docker required.
 
 ## Deployed addresses
 
-See [BUILD_REPORT.md](BUILD_REPORT.md). Addresses and transaction hashes are recorded there only
-after a real deployment; nothing is pre-filled.
+Live on **Flare Testnet Coston2** (chain 114):
+
+| Contract | Address |
+|---|---|
+| `FlareSealEscrow` | [`0xEe7aDeb4268CDC40F3138F7caF08432A1433F204`](https://coston2-explorer.flare.network/address/0xEe7aDeb4268CDC40F3138F7caF08432A1433F204) |
+| FXRP (`FTestXRP`, 6 dec) | [`0x0b6A3645c240605887a5532109323A3E12273dc7`](https://coston2-explorer.flare.network/address/0x0b6A3645c240605887a5532109323A3E12273dc7) |
+| FTSOv2 | [`0xC4e9c78EA53db782E28f28Fdf80BaF59336B304d`](https://coston2-explorer.flare.network/address/0xC4e9c78EA53db782E28f28Fdf80BaF59336B304d) |
+| `FlareSealInstructionSender` | Not yet deployed — needs the FCC stack |
+
+Deployment transaction:
+[`0x1e022add…b5e5acf1`](https://coston2-explorer.flare.network/tx/0x1e022add9356a631382b19f344f4f4c96489cc0d20bd66caf1207d94b5e5acf1)
+
+`teeAddress` is not yet set, so `relayConfidentialInvoice` reverts with `TeeNotConfigured` until the
+FCC stack is running. Full record in [BUILD_REPORT.md](BUILD_REPORT.md).
 
 ---
 

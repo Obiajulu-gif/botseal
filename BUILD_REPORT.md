@@ -155,46 +155,68 @@ Resolved from the live chain via the Contract Registry and FAssets Asset Manager
 
 Deployed by this project:
 
-- **Escrow address:** Not deployed
-- **Escrow deployment transaction:** Not deployed
-- **InstructionSender address:** Not deployed
+- **Escrow address:** [`0xEe7aDeb4268CDC40F3138F7caF08432A1433F204`](https://coston2-explorer.flare.network/address/0xEe7aDeb4268CDC40F3138F7caF08432A1433F204)
+- **Escrow deployment transaction:** [`0x1e022add9356a631382b19f344f4f4c96489cc0d20bd66caf1207d94b5e5acf1`](https://coston2-explorer.flare.network/tx/0x1e022add9356a631382b19f344f4f4c96489cc0d20bd66caf1207d94b5e5acf1)
+- **Deployer / owner:** `0x45F704D31C5affd5e32Fa457cC93a05fc4741706`
+- **Deployed at:** 2026-08-05T21:03:27Z
+- **maxPriceAge:** 600s · **refundGracePeriod:** 604800s
+- **InstructionSender address:** Not deployed — requires Docker
 - **InstructionSender deployment transaction:** Not deployed
 - **Extension ID:** Not registered
 - **TEE signing address:** Not configured
 - **TEE configuration transaction:** Not deployed
 
+### Post-deployment verification
+
+Every immutable was read back off the contract and matched. Independently confirmed with
+`node scripts/smoke-coston2.mjs` and `contracts/scripts/smoke-coston2.ts` at block 33672570:
+
+```
+Escrow               : 0xEe7aDeb4268CDC40F3138F7caF08432A1433F204
+  Owner              : 0x45F704D31C5affd5e32Fa457cC93a05fc4741706
+  FXRP               : 0x0b6A3645c240605887a5532109323A3E12273dc7
+  FtsoV2             : 0xC4e9c78EA53db782E28f28Fdf80BaF59336B304d
+  Max price age      : 600s
+  Refund grace       : 604800s
+  TEE address        : 0x0000000000000000000000000000000000000000
+  Next invoice id    : 1
+  Total escrowed     : 0.0 FTestXRP
+```
+
+**Live FTSOv2 read through the deployed escrow's configured feed:**
+
+```
+XRP/USD (FTSOv2)     : 1.067628 USD
+  Feed timestamp     : 2026-08-05T21:04:29.000Z
+  Age                : 0s
+```
+
+`teeAddress` is intentionally still zero: it can only be set from the FCC proxy `/info` endpoint,
+which needs the Docker stack. Until then `relayConfidentialInvoice` reverts with `TeeNotConfigured`,
+which is the correct and safe behaviour — the contract will not accept an unverifiable result.
+
 ---
 
 ## Demonstrated transactions
 
-- **Confidential invoice request:** Not deployed
-- **FCC relay:** Not deployed
-- **FXRP approval:** Not deployed
-- **Invoice funding:** Not deployed
-- **Payment release or refund:** Not deployed
+- **Escrow deployment:** [`0x1e022add…b5e5acf1`](https://coston2-explorer.flare.network/tx/0x1e022add9356a631382b19f344f4f4c96489cc0d20bd66caf1207d94b5e5acf1)
+- **Confidential invoice request:** Not yet run — needs the FCC stack (Docker)
+- **FCC relay:** Not yet run — needs `teeAddress` to be configured
+- **FXRP approval:** Not yet run
+- **Invoice funding:** Not yet run
+- **Payment release or refund:** Not yet run
 
-No transaction hashes are recorded because no deployment has occurred. Nothing above is simulated or
-placeholder.
+Only the deployment transaction is recorded because it is the only one that has occurred. Nothing
+above is simulated or placeholder.
 
 ---
 
 ## Blockers
 
-Both are external to the code and neither is resolvable from inside this environment.
+### 1. No deployer private key — **RESOLVED 2026-08-05**
 
-### 1. No deployer private key
-
-`contracts/.env` does not exist and no `DEPLOYER_PRIVATE_KEY` is available. Deployment, TEE
-configuration, and every on-chain demonstration are blocked.
-
-**To unblock:** generate a testnet key in your own wallet, fund it from
-<https://faucet.flare.network>, put it in `contracts/.env`, then run:
-
-```bash
-cd contracts && npm run resolve:coston2 && npm run deploy:coston2
-```
-
-The key must be created and held by you. It is read only from the environment and is gitignored.
+A funded Coston2 key was supplied in `contracts/.env` (gitignored, never committed) and the escrow
+was deployed. See the deployment section above.
 
 ### 2. Docker not installed
 
@@ -276,11 +298,14 @@ in the tree. All matches are in the upstream `fce-extension-scaffold`:
 
 Ordered by what unblocks the most:
 
-1. Provide a funded `DEPLOYER_PRIVATE_KEY`; deploy the escrow; record the address and transaction.
-2. Install Docker; validate the scaffold Hello World against live Coston2.
-3. Register the extension; record the extension id and the InstructionSender address.
-4. Start a tunnel; derive the TEE signing address from `/info`; run `configure-tee:coston2`.
-5. Run `fcc/scripts/test.sh` and record the end-to-end result.
-6. Populate `web/.env.local`; perform the two-wallet demo; record all transaction hashes here.
-7. Run the Playwright smoke suite against a production build (`npm run test:e2e`) — the suite is
+1. ~~Provide a funded `DEPLOYER_PRIVATE_KEY`; deploy the escrow.~~ **Done 2026-08-05.**
+2. ~~Populate `web/.env.local` with the deployed addresses.~~ **Done** — public-fallback mode is on
+   because `teeAddress` is unset; turn it off after step 5.
+3. Install Docker; validate the scaffold Hello World against live Coston2.
+4. Register the extension; record the extension id and the InstructionSender address.
+5. Start a tunnel; derive the TEE signing address from `/info`; run `configure-tee:coston2`.
+6. Run `fcc/scripts/test.sh` and record the end-to-end result.
+7. Perform the two-wallet demo; record the approval, funding, and release transaction hashes here.
+   The FXRP/FTSOv2 half is live now and can be demonstrated before the FCC half is ready.
+8. Run the Playwright smoke suite against a production build (`npm run test:e2e`) — the suite is
    written but has not been executed, since `npx playwright install` needs to fetch browsers.
