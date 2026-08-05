@@ -242,11 +242,16 @@ Deployed by this project:
 - **Deployer / owner:** `0x45F704D31C5affd5e32Fa457cC93a05fc4741706`
 - **Deployed at:** 2026-08-05T21:03:27Z
 - **maxPriceAge:** 600s · **refundGracePeriod:** 604800s
-- **InstructionSender address:** Not deployed — requires Docker
-- **InstructionSender deployment transaction:** Not deployed
-- **Extension ID:** Not registered
-- **TEE signing address:** Not configured
+- **InstructionSender address:** [`0xF7F75FF93B500f7199E200Cb665A9573A2b73897`](https://coston2-explorer.flare.network/address/0xF7F75FF93B500f7199E200Cb665A9573A2b73897)
+- **Extension ID:** `0x…0101ac` (65964) — **registered on-chain**
+- **TEE extension registry:** `0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE`
+- **TEE signing address:** Not configured — requires the proxy `/info`, which needs the indexer DB
 - **TEE configuration transaction:** Not deployed
+
+Independently verified on-chain: 2186 bytes of code at the InstructionSender address, with
+`OP_TYPE_INVOICE = "INVOICE"`, `OP_COMMAND_CREATE = "CREATE"`, and the registry wired to
+`0x1a9C4A0f…618aE`. The op identifiers match the TypeScript extension's constants exactly, which is
+the mismatch the build prompt calls out as a test failure.
 
 ### Post-deployment verification
 

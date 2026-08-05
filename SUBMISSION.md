@@ -185,9 +185,15 @@ official FCC scaffold.
 | Contract | Address |
 |---|---|
 | `FlareSealEscrow` | [`0xEe7aDeb4268CDC40F3138F7caF08432A1433F204`](https://coston2-explorer.flare.network/address/0xEe7aDeb4268CDC40F3138F7caF08432A1433F204) |
+| `FlareSealInstructionSender` | [`0xF7F75FF93B500f7199E200Cb665A9573A2b73897`](https://coston2-explorer.flare.network/address/0xF7F75FF93B500f7199E200Cb665A9573A2b73897) |
 | FXRP (`FTestXRP`, 6 dec) | [`0x0b6A3645c240605887a5532109323A3E12273dc7`](https://coston2-explorer.flare.network/address/0x0b6A3645c240605887a5532109323A3E12273dc7) |
 | FTSOv2 | [`0xC4e9c78EA53db782E28f28Fdf80BaF59336B304d`](https://coston2-explorer.flare.network/address/0xC4e9c78EA53db782E28f28Fdf80BaF59336B304d) |
 | FXRP Asset Manager | [`0xc1Ca88b937d0b528842F95d5731ffB586f4fbDFA`](https://coston2-explorer.flare.network/address/0xc1Ca88b937d0b528842F95d5731ffB586f4fbDFA) |
+| TEE Extension Registry | [`0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE`](https://coston2-explorer.flare.network/address/0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE) |
+
+**FCC extension ID: `0x…0101ac` (65964) — registered on-chain.** The InstructionSender's
+`OP_TYPE_INVOICE`/`OP_COMMAND_CREATE` were read back from the deployed contract as `INVOICE`/`CREATE`,
+matching the TypeScript extension's constants exactly.
 
 **Deployment transaction:**
 [`0x1e022add9356a631382b19f344f4f4c96489cc0d20bd66caf1207d94b5e5acf1`](https://coston2-explorer.flare.network/tx/0x1e022add9356a631382b19f344f4f4c96489cc0d20bd66caf1207d94b5e5acf1)
