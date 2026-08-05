@@ -136,6 +136,60 @@ The frontend was run (`next dev`) and driven in a browser: landing page, dashboa
 an invalid invoice id all render with **no console errors**. Environment wiring, address display,
 explorer URL construction, and the not-configured/not-connected gates were confirmed live.
 
+### FCC conformance suite — **stale, and vacuously green on this machine**
+
+```
+cd fcc && ./scripts/test-conformance.sh typescript
+```
+
+Reports `16 passed`. **That result is meaningless here.** Two independent problems:
+
+1. **The fixtures are stale.** `testdata/conformance/` still contains the scaffold's Hello World
+   cases — `01-say-hello-success` through `07-say-goodbye-rejects-json` assert
+   `opType = 0x4752454554494e47…` (`GREETING`) and `SAY_HELLO`/`SAY_GOODBYE`. FlareSeal's extension
+   registers only `INVOICE`/`CREATE`, and `16-get-state` expects
+   `{greetingCount, lastGreeting, farewellCount, lastFarewell}` where the extension reports
+   `{invoicesProcessed, invoicesRejected, lastStatus}`. These cases should fail.
+
+2. **`jq` cannot open the fixtures on this machine, and the script scores that as a pass.** Every
+   comparison logged `jq: error: Could not open file …/NN-*.json: Invalid argument` — Git Bash
+   handing a space-containing path (`C:\Users\googl\Desktop\Claude response\…`) to a native
+   `jq.exe`. The script does `expected="$(jq … "$file")"` and `actual="$(jq … "$resp_file")"`; when
+   `jq` fails both are empty strings, they compare equal, and the case is marked `✓`. So the suite
+   cannot fail on this setup regardless of what the extension does.
+
+Neither problem originates in FlareSeal code — (1) is an un-regenerated scaffold artifact, (2) is an
+upstream script that treats tool failure as success. Both are recorded rather than papered over.
+
+**To fix properly:** regenerate the fixtures for the `INVOICE`/`CREATE` contract via
+`testdata/conformance/gen_fixtures.py` (the docs are explicit that fixtures are generated, not
+hand-edited), and run on a path without spaces or with a jq build that accepts them. Note that a
+conformance *success* case for `INVOICE/CREATE` cannot be produced offline: the handler decrypts
+through tee-node's sign port, so without the TEE only the rejection paths (empty payload, invalid
+hex, decryption failure) are deterministic.
+
+The extension's behaviour is covered meanwhile by the 91 vitest unit tests, which exercise the
+handler directly through the `setDecryptor` seam.
+
+### FCC Go tooling tests
+
+```
+cd fcc/tools && go test ./...
+```
+
+```
+ok    extension-scaffold/tools/pkg/support     1.864s
+ok    extension-scaffold/tools/pkg/validate    2.966s
+FAIL  extension-scaffold/tools/pkg/fccutils    2.193s
+  --- FAIL: TestSaveState_ReadOnlyDir
+      registration_test.go:159: expected error writing to read-only directory, got nil
+```
+
+One failure, in upstream scaffold code, and Windows-specific: the test chmods a directory read-only
+and expects the write to fail, but Windows ACLs do not enforce that for the owning user the way Unix
+permission bits do. Revert decoding, env parsing, validation, and report formatting all pass. Not
+caused by FlareSeal changes and not on any FlareSeal code path.
+
 ### End-to-end (FCC)
 
 **Not executed.** Requires Docker — see blockers.
@@ -309,3 +363,6 @@ Ordered by what unblocks the most:
    The FXRP/FTSOv2 half is live now and can be demonstrated before the FCC half is ready.
 8. Run the Playwright smoke suite against a production build (`npm run test:e2e`) — the suite is
    written but has not been executed, since `npx playwright install` needs to fetch browsers.
+9. Regenerate the FCC conformance fixtures for `INVOICE`/`CREATE` (currently the scaffold's stale
+   Hello World set) and run them somewhere `jq` can read the fixture paths. See the conformance
+   section above — the suite currently cannot fail on this machine.
