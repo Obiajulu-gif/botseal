@@ -136,13 +136,45 @@ The frontend was run (`next dev`) and driven in a browser: landing page, dashboa
 an invalid invoice id all render with **no console errors**. Environment wiring, address display,
 explorer URL construction, and the not-configured/not-connected gates were confirmed live.
 
-### FCC conformance suite — **stale, and vacuously green on this machine**
+### FCC conformance suite — **rewritten for INVOICE/CREATE, 15/15 passing**
 
 ```
 cd fcc && ./scripts/test-conformance.sh typescript
 ```
 
-Reports `16 passed`. **That result is meaningless here.** Two independent problems:
+```
+  ✓ 01-invoice-create-empty-payload
+  ✓ 02-invoice-create-invalid-hex
+  ✓ 03-invoice-create-decryption-unavailable
+  ✓ 04-invoice-create-rejection-is-idempotent
+  ✓ 05-unknown-op-type
+  ✓ 06-unknown-op-command
+  ✓ 07-greeting-op-type-is-gone
+  ✓ 08-invalid-action-json
+  ✓ 09-invalid-hex-in-message
+  ✓ 10-message-not-datafixed
+  ✓ 11-get-action-not-allowed
+  ✓ 12-post-state-not-allowed
+  ✓ 13-unknown-path
+  ✓ 14-get-state
+  ✓ 15-state-exposes-no-invoice-content
+  15 passed
+```
+
+The green is now meaningful, which it previously was not. **The guard was verified by observing it
+fail:** with the fixture paths still broken, all 15 reported `✗ fixture unreadable by jq` rather
+than passing.
+
+A success case for `INVOICE/CREATE` is deliberately absent. The handler decrypts through tee-node's
+sign port, which the conformance harness does not run, so a success fixture would require stubbing
+the decryptor — at which point it would no longer be testing the wire contract. Handler success is
+covered by the vitest suite through the `setDecryptor` seam. Fixture `07` is a regression guard: it
+asserts the scaffold's `GREETING` route no longer resolves, which is what would catch a
+half-finished customization.
+
+#### What was wrong before
+
+The suite previously reported `16 passed` while asserting **nothing**. Two independent problems:
 
 1. **The fixtures are stale.** `testdata/conformance/` still contains the scaffold's Hello World
    cases — `01-say-hello-success` through `07-say-goodbye-rejects-json` assert
@@ -158,18 +190,14 @@ Reports `16 passed`. **That result is meaningless here.** Two independent proble
    `jq` fails both are empty strings, they compare equal, and the case is marked `✓`. So the suite
    cannot fail on this setup regardless of what the extension does.
 
-Neither problem originates in FlareSeal code — (1) is an un-regenerated scaffold artifact, (2) is an
-upstream script that treats tool failure as success. Both are recorded rather than papered over.
+Root cause of (2): a native Windows `jq.exe` emits **CRLF**, so `read -r name` left a trailing `\r`
+inside the constructed path (`…-payload\r.json`) and every `open` failed with `Invalid argument`.
+`index.json` itself read fine, which is what made the failure look like a fixture problem rather
+than a line-ending one.
 
-**To fix properly:** regenerate the fixtures for the `INVOICE`/`CREATE` contract via
-`testdata/conformance/gen_fixtures.py` (the docs are explicit that fixtures are generated, not
-hand-edited), and run on a path without spaces or with a jq build that accepts them. Note that a
-conformance *success* case for `INVOICE/CREATE` cannot be produced offline: the handler decrypts
-through tee-node's sign port, so without the TEE only the rejection paths (empty payload, invalid
-hex, decryption failure) are deterministic.
-
-The extension's behaviour is covered meanwhile by the 91 vitest unit tests, which exercise the
-handler directly through the `setDecryptor` seam.
+Both are fixed: CR is stripped in both jq-fed read loops, and any fixture jq cannot read now fails
+loudly instead of scoring green. The fixtures were regenerated from `gen_fixtures.py`, which no
+longer needs `eth_abi` and now prunes stale fixtures so a removed case cannot linger.
 
 ### FCC Go tooling tests
 
@@ -272,7 +300,65 @@ above is simulated or placeholder.
 A funded Coston2 key was supplied in `contracts/.env` (gitignored, never committed) and the escrow
 was deployed. See the deployment section above.
 
-### 2. Docker not installed
+### 2. Docker — **runtime found; three environment faults fixed; registration still in progress**
+
+Docker Desktop is not installed, but that turned out not to matter: **Docker Engine 29.6.1 and
+Compose v5.3.1 are already installed inside WSL Ubuntu 24.04, with `dockerd` running.** Reaching it
+needs no Windows-level install and no elevation — `wsl -d Ubuntu -u root` connects to the daemon
+directly. (The Linux user `emmanuel` is not in a `docker` group; the group does not exist and the
+socket is `root:root`. Running as root in WSL sidesteps that without touching system permissions.)
+
+Getting the scaffold to actually run there surfaced three real faults, all now fixed:
+
+1. **Every shell script was CRLF.** `core.autocrlf=true` rewrote them on checkout, so bash rejected
+   all of them with `/usr/bin/env: 'bash\r': No such file or directory`. The FCC pipeline could
+   never have run on this machine, with or without Docker. Fixed by normalising to LF and adding
+   `.gitattributes` to pin it.
+2. **`generate-bindings.sh` hard-required Foundry**, which is not installed. It now falls back to
+   the Hardhat artifact produced by `hardhat.fcc.config.ts` — which existed for precisely this case
+   but was not wired into the pipeline.
+3. **The documented lifecycle in the build prompt is out of date.**
+   `./scripts/use-chain.sh local coston2 typescript` fails with `expected one chain name (got 3)`;
+   the current script takes a single chain argument and copies `.env.<chain>` → `.env`.
+
+`fcc/.env` and `fcc/.env.coston2` are configured against the deployed escrow
+(`ESCROW_CONTRACT_ADDRESS=0xEe7aDeb…F204`), reusing the deployer key. Both are gitignored.
+
+#### The genuine remaining blocker: a Coston2 chain indexer DB
+
+With the environment faults cleared, the stack stops at a dependency that is not obtainable from
+this repository. `config/proxy/extension_proxy.coston2.docker.toml.example` requires the ext-proxy
+to reach a **chain indexer database** on MySQL port 3306:
+
+```toml
+[db]
+host     = "<indexer-db-host>"
+port     = 3306
+database = "<indexer-db-name>"
+username = "<indexer-db-user>"
+password = "<indexer-db-password>"
+```
+
+Those are placeholders, and no compose service in this repo provides them. `full-setup.sh` points at
+`../../e2e/docker/coston` — a path in a **different Flare repository** that is not vendored here,
+and which in any case only covers Coston, not Coston2.
+
+Satisfying this needs one of:
+
+- credentials for a Flare-operated Coston2 indexer DB, or
+- standing up and fully syncing a Coston2 indexer locally (a separate codebase, plus chain sync
+  time).
+
+Neither is a code problem in FlareSeal, and neither can be fabricated. This is the Level-3 scenario
+in the prompt's fallback strategy, reached honestly: **no TEE signature was faked and no FCC
+assertion was stubbed or skipped to manufacture a green result.**
+
+What that leaves unverified is exactly one link: a live TEE signature produced by a running enclave.
+Everything on either side of it is implemented and tested — the extension handler (91 unit + 15
+conformance tests), and the contract-side signature verification, replay protection, and relay
+(covered in the Solidity suite against a test-wallet TEE signer).
+
+### 2b. Docker Desktop (superseded)
 
 `docker: command not found`, and no Docker install is present. The FCC stack (`extension-tee`,
 `ext-proxy`, `redis`) cannot run, so:
