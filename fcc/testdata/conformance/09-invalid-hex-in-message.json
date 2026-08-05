@@ -1,6 +1,6 @@
 {
-  "name": "11-invalid-hex-in-message",
-  "description": "A non-hex data.message is 400",
+  "name": "09-invalid-hex-in-message",
+  "description": "A non-hex data.message is 400 \u2014 rejected by the framework, not the handler",
   "request": {
     "method": "POST",
     "path": "/action",

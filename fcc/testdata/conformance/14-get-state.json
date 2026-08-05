@@ -1,0 +1,19 @@
+{
+  "name": "14-get-state",
+  "description": "GET /state returns bytes32 stateVersion and the accumulated counters. Four actions reached the handler and all four were rejected; the 501s never did, so they must not be counted.",
+  "request": {
+    "method": "GET",
+    "path": "/state"
+  },
+  "expect": {
+    "status": 200,
+    "json": {
+      "stateVersion": "0x302e312e30000000000000000000000000000000000000000000000000000000",
+      "state": {
+        "invoicesProcessed": 0,
+        "invoicesRejected": 4,
+        "lastStatus": "error"
+      }
+    }
+  }
+}

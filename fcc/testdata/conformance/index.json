@@ -1,20 +1,19 @@
 {
   "fixtures": [
-    "01-say-hello-success",
-    "02-say-hello-counter-increments",
-    "03-say-hello-empty-name",
-    "04-say-hello-malformed-payload",
-    "05-say-goodbye-success",
-    "06-say-goodbye-empty-reason-allowed",
-    "07-say-goodbye-rejects-json",
-    "08-unknown-op-type",
-    "09-unknown-op-command",
-    "10-invalid-action-json",
-    "11-invalid-hex-in-message",
-    "12-message-not-datafixed",
-    "13-get-action-not-allowed",
-    "14-post-state-not-allowed",
-    "15-unknown-path",
-    "16-get-state"
+    "01-invoice-create-empty-payload",
+    "02-invoice-create-invalid-hex",
+    "03-invoice-create-decryption-unavailable",
+    "04-invoice-create-rejection-is-idempotent",
+    "05-unknown-op-type",
+    "06-unknown-op-command",
+    "07-greeting-op-type-is-gone",
+    "08-invalid-action-json",
+    "09-invalid-hex-in-message",
+    "10-message-not-datafixed",
+    "11-get-action-not-allowed",
+    "12-post-state-not-allowed",
+    "13-unknown-path",
+    "14-get-state",
+    "15-state-exposes-no-invoice-content"
   ]
 }

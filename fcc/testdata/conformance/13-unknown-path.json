@@ -1,5 +1,5 @@
 {
-  "name": "15-unknown-path",
+  "name": "13-unknown-path",
   "description": "An unknown path is 404",
   "request": {
     "method": "GET",

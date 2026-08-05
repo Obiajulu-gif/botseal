@@ -1,5 +1,5 @@
 {
-  "name": "10-invalid-action-json",
+  "name": "08-invalid-action-json",
   "description": "A body that is not JSON is 400",
   "request": {
     "method": "POST",

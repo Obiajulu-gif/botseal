@@ -1,5 +1,5 @@
 {
-  "name": "14-post-state-not-allowed",
+  "name": "12-post-state-not-allowed",
   "description": "POST /state is 405",
   "request": {
     "method": "POST",

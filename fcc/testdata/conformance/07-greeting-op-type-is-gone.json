@@ -1,6 +1,6 @@
 {
-  "name": "01-say-hello-success",
-  "description": "SAY_HELLO with a JSON payload returns a greeting and counter 1",
+  "name": "07-greeting-op-type-is-gone",
+  "description": "The scaffold's GREETING/SAY_HELLO route must no longer resolve \u2014 this fixture is what catches a half-finished customization that left both extensions wired",
   "request": {
     "method": "POST",
     "path": "/action",
@@ -18,17 +18,7 @@
     }
   },
   "expect": {
-    "status": 200,
-    "json": {
-      "id": "0x1111111111111111111111111111111111111111111111111111111111111111",
-      "submissionTag": "submit",
-      "status": 1,
-      "log": "ok",
-      "opType": "0x4752454554494e47000000000000000000000000000000000000000000000000",
-      "opCommand": "0x5341595f48454c4c4f0000000000000000000000000000000000000000000000",
-      "additionalResultStatus": "0x",
-      "version": "0.1.0",
-      "data": "0x7b226772656574696e67223a2248656c6c6f2c20576f726c64212057656c636f6d6520746f20466c61726520436f6e666964656e7469616c20436f6d707574652e222c226772656574696e674e756d626572223a317d"
-    }
+    "status": 501,
+    "text_contains": "unsupported op type"
   }
 }

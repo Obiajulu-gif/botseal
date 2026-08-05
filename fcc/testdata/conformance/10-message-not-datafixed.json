@@ -1,5 +1,5 @@
 {
-  "name": "12-message-not-datafixed",
+  "name": "10-message-not-datafixed",
   "description": "A valid-hex message that is not DataFixed JSON is 400",
   "request": {
     "method": "POST",

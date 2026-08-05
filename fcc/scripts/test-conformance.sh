@@ -115,6 +115,10 @@ run_language() {
 
     local passed=0 failed=0
     while read -r name; do
+        # A native Windows jq.exe emits CRLF, which would otherwise leave a
+        # trailing CR inside the path ("…-payload\r.json") and make every
+        # fixture unopenable.
+        name="${name%$'\r'}"
         [[ -n "$name" ]] || continue
         if run_fixture "$FIXTURE_DIR/$name.json" "$port"; then
             passed=$((passed + 1))
@@ -137,6 +141,22 @@ run_language() {
 # --- run a single fixture -----------------------------------------------------
 run_fixture() {
     local file="$1" port="$2"
+
+    # A fixture jq cannot read must FAIL LOUDLY, never pass.
+    #
+    # Without this guard, a jq failure (malformed fixture, or a path this jq
+    # build cannot open — a native Windows jq.exe invoked from Git Bash chokes
+    # on paths containing a space) leaves `expected` and `actual` both empty.
+    # They compare equal, every `jq -e '.expect | has(...)'` probe exits
+    # non-zero so each assertion block is skipped as "not requested", and the
+    # case is scored green having asserted precisely nothing. A suite that
+    # cannot fail is worse than one that does.
+    if ! jq -e . "$file" >/dev/null 2>&1; then
+        echo -e "  ${RED}✗${NC} $(basename "$file" .json)"
+        echo -e "    ${RED}fixture unreadable by jq — malformed JSON, or a path this jq cannot open${NC}"
+        return 1
+    fi
+
     local name; name="$(jq -r '.name' "$file")"
     local method; method="$(jq -r '.request.method' "$file")"
     local path;   path="$(jq -r '.request.path' "$file")"
@@ -174,6 +194,7 @@ run_fixture() {
     # Subset match: every listed key must be present and equal.
     if [[ -z "$fail" ]] && jq -e '.expect | has("json_subset")' "$file" >/dev/null; then
         while read -r key; do
+            key="${key%$'\r'}"   # see the CRLF note in the fixture loop above
             local expected actual
             expected="$(jq -S -c --arg k "$key" '.expect.json_subset[$k]' "$file")"
             actual="$(jq -S -c --arg k "$key" '.[$k]' "$resp_file" 2>/dev/null)" || actual="null"
