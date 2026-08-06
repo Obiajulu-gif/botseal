@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowRight, FilePlus2 } from "lucide-react";
 import { useAccount } from "wagmi";
 
-import { EmptyState, PrivacyBadge, StatusBadge } from "@/components/common";
+import { EmptyState, PageHeader, PrivacyBadge, StatusBadge } from "@/components/common";
 import { RequireWallet } from "@/components/wallet";
-import { Alert, Badge, Card, Spinner } from "@/components/ui/primitives";
+import { Alert, Badge, buttonVariants, Card, Spinner } from "@/components/ui/primitives";
 import { formatTokenAmount, useFxrpMetadata } from "@/hooks/use-fxrp";
 import {
   mergeInvoiceIds,
@@ -19,13 +20,18 @@ import { formatDate } from "@/lib/utils";
 
 export default function DashboardPage() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">
-          Every invoice where you are the seller or the buyer.
-        </p>
-      </div>
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow="Settlement command center"
+        title="Dashboard"
+        description="Track every invoice where your connected wallet is the seller or buyer, from sealed payload to final settlement."
+        action={
+          <Link href="/invoices/new" className={buttonVariants()}>
+            <FilePlus2 className="h-4 w-4" aria-hidden="true" />
+            New invoice
+          </Link>
+        }
+      />
 
       {!isEscrowConfigured ? (
         <Alert tone="warning" title="Escrow not configured">
@@ -59,7 +65,7 @@ function InvoiceList() {
 
   if (seller.isLoading || buyer.isLoading || (ids.length > 0 && isLoading)) {
     return (
-      <div className="flex items-center gap-3 rounded-lg border border-border p-10 text-sm text-muted-foreground">
+      <div className="glass-panel flex items-center gap-3 rounded-2xl border border-white/[0.08] p-10 text-sm text-foreground/60">
         <Spinner /> Loading invoices…
       </div>
     );
@@ -86,10 +92,10 @@ function InvoiceList() {
   }
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden border-white/[0.08]">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+          <thead className="border-b border-white/[0.07] bg-white/[0.025] text-left text-[0.66rem] uppercase tracking-[0.12em] text-foreground/40">
             <tr>
               <th className="px-4 py-3 font-medium">#</th>
               <th className="px-4 py-3 font-medium">Role</th>
@@ -107,7 +113,10 @@ function InvoiceList() {
               const isBuyer = buyerIds.has(invoice.id);
 
               return (
-                <tr key={invoice.id.toString()} className="border-b border-border last:border-0">
+                <tr
+                  key={invoice.id.toString()}
+                  className="border-b border-white/[0.055] transition-colors hover:bg-white/[0.025] last:border-0"
+                >
                   <td className="px-4 py-3 font-mono text-xs">{invoice.id.toString()}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
@@ -133,9 +142,9 @@ function InvoiceList() {
                   <td className="px-4 py-3 text-right">
                     <Link
                       href={`/invoices/${invoice.id}`}
-                      className="text-xs text-primary hover:underline"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-[#ff9678]"
                     >
-                      Details →
+                      Details <ArrowRight className="h-3 w-3" aria-hidden="true" />
                     </Link>
                   </td>
                 </tr>

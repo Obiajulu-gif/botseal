@@ -17,7 +17,7 @@ export function AddressLink({ address, full = false }: { address: string; full?:
       href={addressUrl(address)}
       target="_blank"
       rel="noopener noreferrer"
-      className="font-mono text-xs text-primary hover:underline"
+      className="font-mono text-xs text-primary transition-colors hover:text-[#ff9678] hover:underline"
     >
       {full ? address : shortenHex(address)}
     </a>
@@ -30,7 +30,7 @@ export function TxLink({ hash, label }: { hash: string; label?: string }) {
       href={txUrl(hash)}
       target="_blank"
       rel="noopener noreferrer"
-      className="font-mono text-xs text-primary hover:underline"
+      className="font-mono text-xs text-primary transition-colors hover:text-[#ff9678] hover:underline"
     >
       {label ?? shortenHex(hash, 10, 8)}
     </a>
@@ -68,9 +68,34 @@ export function DetailRow({
   mono?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-1 border-b border-border py-3 last:border-0 sm:grid-cols-3 sm:gap-4">
-      <dt className="text-sm text-muted-foreground">{label}</dt>
+    <div className="grid grid-cols-1 gap-1 border-b border-white/[0.06] py-3.5 last:border-0 sm:grid-cols-3 sm:gap-4">
+      <dt className="text-sm text-foreground/45">{label}</dt>
       <dd className={`sm:col-span-2 ${mono ? "hex" : "text-sm"}`}>{children}</dd>
+    </div>
+  );
+}
+
+export function PageHeader({
+  eyebrow,
+  title,
+  description,
+  action,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col justify-between gap-5 border-b border-white/[0.07] pb-7 sm:flex-row sm:items-end">
+      <div className="max-w-3xl">
+        <p className="eyebrow mb-3">{eyebrow}</p>
+        <h1 className="font-display text-3xl font-semibold tracking-[-0.045em] sm:text-4xl">
+          {title}
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-foreground/60">{description}</p>
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
     </div>
   );
 }
@@ -85,13 +110,13 @@ export function EmptyState({
   action?: { href: string; label: string };
 }) {
   return (
-    <div className="rounded-lg border border-dashed border-border p-10 text-center">
-      <p className="font-medium">{title}</p>
-      {children ? <p className="mt-1 text-sm text-muted-foreground">{children}</p> : null}
+    <div className="glass-panel rounded-2xl border border-dashed border-white/10 p-12 text-center">
+      <p className="font-display text-lg font-semibold">{title}</p>
+      {children ? <p className="mt-2 text-sm text-foreground/60">{children}</p> : null}
       {action ? (
         <Link
           href={action.href}
-          className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          className="mt-5 inline-block rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-[0_12px_35px_hsl(var(--primary)/0.22)] transition-transform hover:-translate-y-0.5"
         >
           {action.label}
         </Link>

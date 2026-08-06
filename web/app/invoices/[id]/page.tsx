@@ -13,6 +13,7 @@ import {
   AddressLink,
   DetailRow,
   EmptyState,
+  PageHeader,
   PrivacyBadge,
   StatusBadge,
 } from "@/components/common";
@@ -20,6 +21,7 @@ import { RequireWallet } from "@/components/wallet";
 import {
   Alert,
   Button,
+  buttonVariants,
   Card,
   CardContent,
   CardDescription,
@@ -43,16 +45,20 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Invoice #{id}</h1>
-          <p className="text-sm text-muted-foreground">Public on-chain record.</p>
-        </div>
-        <Link href="/dashboard" className="text-sm text-primary hover:underline">
-          ← Back to dashboard
-        </Link>
-      </div>
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow="On-chain settlement record"
+        title={`Invoice #${id}`}
+        description="Inspect the public proof, escrow state, and settlement actions. Confidential line items never appear here."
+        action={
+          <Link
+            href="/dashboard"
+            className="text-sm font-medium text-primary transition-colors hover:text-[#ff9678]"
+          >
+            ← Back to dashboard
+          </Link>
+        }
+      />
 
       {!isEscrowConfigured ? (
         <Alert tone="warning" title="Escrow not configured">
@@ -74,7 +80,7 @@ function InvoiceDetail({ invoiceId }: { invoiceId: bigint }) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-3 rounded-lg border border-border p-10 text-sm text-muted-foreground">
+      <div className="glass-panel flex items-center gap-3 rounded-2xl border border-white/[0.08] p-10 text-sm text-foreground/60">
         <Spinner /> Loading invoice…
       </div>
     );
@@ -207,8 +213,8 @@ function ActionsPanel({ invoice }: { invoice: Invoice }) {
       </CardHeader>
       <CardContent className="space-y-3">
         {invoice.status === InvoiceStatus.Pending && isBuyer ? (
-          <Link href={`/pay/${invoice.id}`} className="block">
-            <Button className="w-full">Fund this invoice</Button>
+          <Link href={`/pay/${invoice.id}`} className={buttonVariants({ className: "w-full" })}>
+            Fund this invoice
           </Link>
         ) : null}
 

@@ -10,21 +10,25 @@ import { cn } from "@/lib/utils";
 
 // --- Button ------------------------------------------------------------------
 
-const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
+export const buttonVariants = cva(
+  "group relative isolate inline-flex items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-xl text-sm font-semibold tracking-[-0.01em] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        secondary: "bg-muted text-foreground hover:bg-muted/70",
-        outline: "border border-border bg-transparent hover:bg-muted",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        ghost: "hover:bg-muted",
+        default:
+          "bg-gradient-to-br from-primary via-[#ff5c39] to-[#ff7a45] text-primary-foreground shadow-[0_12px_35px_hsl(var(--primary)/0.22)] before:absolute before:inset-y-0 before:left-[-60%] before:w-1/2 before:skew-x-[-20deg] before:bg-white/20 before:opacity-0 before:transition-all before:duration-500 hover:-translate-y-0.5 hover:shadow-[0_16px_42px_hsl(var(--primary)/0.34)] hover:before:left-[130%] hover:before:opacity-100",
+        secondary:
+          "border border-accent/20 bg-accent/10 text-accent hover:-translate-y-0.5 hover:border-accent/40 hover:bg-accent/15",
+        outline:
+          "border border-white/10 bg-white/[0.035] text-foreground shadow-[inset_0_1px_0_hsl(0_0%_100%/0.04)] hover:-translate-y-0.5 hover:border-primary/35 hover:bg-white/[0.07]",
+        destructive:
+          "bg-destructive text-destructive-foreground shadow-[0_10px_30px_hsl(var(--destructive)/0.18)] hover:-translate-y-0.5 hover:bg-destructive/90",
+        ghost: "text-foreground/70 hover:bg-white/[0.06] hover:text-foreground",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-8 rounded-md px-3 text-xs",
-        lg: "h-11 rounded-md px-6",
+        default: "h-11 px-4 py-2",
+        sm: "h-9 rounded-lg px-3 text-xs",
+        lg: "h-12 rounded-xl px-6",
       },
     },
     defaultVariants: { variant: "default", size: "default" },
@@ -53,7 +57,10 @@ export const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDi
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn("rounded-lg border border-border bg-card text-card-foreground", className)}
+      className={cn(
+        "glass-panel rounded-2xl border border-white/[0.08] text-card-foreground",
+        className,
+      )}
       {...props}
     />
   ),
@@ -61,26 +68,29 @@ export const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDi
 Card.displayName = "Card";
 
 export const CardHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col space-y-1.5 p-6", className)} {...props} />
+  <div className={cn("relative z-[1] flex flex-col space-y-1.5 p-6", className)} {...props} />
 );
 
 export const CardTitle = ({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-  <h3 className={cn("text-lg font-semibold leading-none tracking-tight", className)} {...props} />
+  <h3
+    className={cn("font-display text-lg font-semibold leading-none tracking-[-0.025em]", className)}
+    {...props}
+  />
 );
 
 export const CardDescription = ({
   className,
   ...props
 }: React.HTMLAttributes<HTMLParagraphElement>) => (
-  <p className={cn("text-sm text-muted-foreground", className)} {...props} />
+  <p className={cn("text-sm leading-relaxed text-foreground/60", className)} {...props} />
 );
 
 export const CardContent = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("p-6 pt-0", className)} {...props} />
+  <div className={cn("relative z-[1] p-6 pt-0", className)} {...props} />
 );
 
 export const CardFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex items-center p-6 pt-0", className)} {...props} />
+  <div className={cn("relative z-[1] flex items-center p-6 pt-0", className)} {...props} />
 );
 
 // --- Input / Label -----------------------------------------------------------
@@ -90,7 +100,7 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
     <input
       ref={ref}
       className={cn(
-        "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+        "flex h-11 w-full rounded-xl border border-white/[0.09] bg-black/20 px-3.5 py-2 text-sm text-foreground shadow-[inset_0_1px_0_hsl(0_0%_100%/0.025)] ring-offset-background transition-colors placeholder:text-foreground/30 focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}
@@ -105,7 +115,7 @@ export const Label = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <label
     ref={ref}
-    className={cn("text-sm font-medium leading-none text-foreground", className)}
+    className={cn("text-sm font-medium leading-none text-foreground/[0.87]", className)}
     {...props}
   />
 ));
@@ -122,15 +132,15 @@ export const FieldError = ({ children, id }: { children?: React.ReactNode; id?: 
 // --- Badge -------------------------------------------------------------------
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium",
+  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.08em] backdrop-blur-sm",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-primary/10 text-primary",
-        neutral: "border-border bg-muted text-muted-foreground",
-        success: "border-transparent bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
-        warning: "border-transparent bg-amber-500/15 text-amber-700 dark:text-amber-400",
-        danger: "border-transparent bg-destructive/15 text-destructive",
+        default: "border-primary/20 bg-primary/10 text-[#ff8a67]",
+        neutral: "border-white/[0.08] bg-white/[0.045] text-foreground/60",
+        success: "border-emerald-400/20 bg-emerald-400/10 text-emerald-300",
+        warning: "border-amber-400/20 bg-amber-400/10 text-amber-300",
+        danger: "border-destructive/25 bg-destructive/10 text-red-300",
       },
     },
     defaultVariants: { variant: "neutral" },
@@ -161,14 +171,14 @@ export const Alert = ({
   <div
     role="status"
     className={cn(
-      "rounded-lg border p-4 text-sm",
-      tone === "info" && "border-border bg-muted/50 text-foreground",
-      tone === "warning" && "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300",
-      tone === "danger" && "border-destructive/40 bg-destructive/10 text-destructive",
+      "glass-panel rounded-2xl border p-4 text-sm leading-relaxed",
+      tone === "info" && "border-accent/20 bg-accent/[0.055] text-foreground/[0.87]",
+      tone === "warning" && "border-amber-400/25 bg-amber-400/[0.07] text-amber-200",
+      tone === "danger" && "border-destructive/30 bg-destructive/[0.08] text-red-200",
       className,
     )}
   >
-    {title ? <p className="mb-1 font-semibold">{title}</p> : null}
+    {title ? <p className="mb-1 font-display font-semibold tracking-[-0.015em]">{title}</p> : null}
     {children}
   </div>
 );
