@@ -1,5 +1,7 @@
 # FlareSeal
 
+**Live app: https://flareseal.vercel.app**
+
 Confidential invoice creation and FXRP escrow on **Flare Testnet Coston2**.
 
 Invoice line items, customer identities, tax details, and the commitment's entropy are encrypted in

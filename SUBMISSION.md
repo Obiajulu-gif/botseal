@@ -56,12 +56,16 @@ grace period.
 
 ## 5. Demo link / video / working app
 
+- **Live app: https://flareseal.vercel.app** — connect any injected wallet on Coston2
 - **Repository:** https://github.com/Obiajulu-gif/flareseal
 - **Deployed escrow (live, verifiable):**
   [`0xEe7aDeb4268CDC40F3138F7caF08432A1433F204`](https://coston2-explorer.flare.network/address/0xEe7aDeb4268CDC40F3138F7caF08432A1433F204)
-- **Run locally:** see [README.md](README.md) — `make install`, set `web/.env.local`,
-  `cd web && npm run dev`
 - **Demo script:** [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md) — a deterministic ~10 minute walkthrough
+
+The hosted app reads live Coston2 state on load, including the escrow's `teeAddress`. Because that
+is not yet set, the UI reports **"Awaiting TEE"** and disables the private-invoice button rather
+than letting a visitor pay gas for an instruction that cannot be relayed. The FXRP path — quote from
+FTSOv2, approve, fund, release — is fully live.
 
 > **← ADD A VIDEO LINK.** Record the DEMO_RUNBOOK walkthrough. Judges consistently rate a 3-minute
 > screen recording above a written description. Show the instruction transaction's calldata on the
