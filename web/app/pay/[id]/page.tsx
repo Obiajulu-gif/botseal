@@ -13,12 +13,13 @@ import Link from "next/link";
 import { use, useState } from "react";
 import { useAccount } from "wagmi";
 
-import { AddressLink, StatusBadge } from "@/components/common";
+import { AddressLink, PageHeader, StatusBadge } from "@/components/common";
 import { RequireWallet } from "@/components/wallet";
 import {
   Alert,
   Badge,
   Button,
+  buttonVariants,
   Card,
   CardContent,
   CardDescription,
@@ -53,18 +54,20 @@ export default function PayPage({ params }: { params: Promise<{ id: string }> })
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Pay invoice #{id}</h1>
-          <p className="text-sm text-muted-foreground">
-            Priced in FXRP at the live FTSOv2 XRP/USD rate.
-          </p>
-        </div>
-        <Link href={`/invoices/${id}`} className="text-sm text-primary hover:underline">
-          View invoice details →
-        </Link>
-      </div>
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow="FXRP escrow funding"
+        title={`Pay invoice #${id}`}
+        description="Review the live FTSOv2 quote, approve the exact FXRP ceiling, and fund the escrow without exposing private invoice terms."
+        action={
+          <Link
+            href={`/invoices/${id}`}
+            className="text-sm font-medium text-primary transition-colors hover:text-[#ff9678]"
+          >
+            View invoice details →
+          </Link>
+        }
+      />
 
       {!isEscrowConfigured ? (
         <Alert tone="warning" title="Escrow not configured">
@@ -97,7 +100,7 @@ function PayFlow({ invoiceId }: { invoiceId: bigint }) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-3 rounded-lg border border-border p-10 text-sm text-muted-foreground">
+      <div className="glass-panel flex items-center gap-3 rounded-2xl border border-white/[0.08] p-10 text-sm text-foreground/60">
         <Spinner /> Loading invoice…
       </div>
     );
@@ -135,8 +138,8 @@ function PayFlow({ invoiceId }: { invoiceId: bigint }) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Link href={`/invoices/${invoiceId}`}>
-            <Button variant="outline">View invoice</Button>
+          <Link href={`/invoices/${invoiceId}`} className={buttonVariants({ variant: "outline" })}>
+            View invoice
           </Link>
         </CardContent>
       </Card>

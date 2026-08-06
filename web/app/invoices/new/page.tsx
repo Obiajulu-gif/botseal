@@ -10,6 +10,7 @@
  */
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Cpu, FileText, LockKeyhole, Send, type LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
@@ -17,7 +18,7 @@ import { toast } from "sonner";
 import { isAddress, type Hex } from "viem";
 import { useAccount } from "wagmi";
 
-import { TxLink } from "@/components/common";
+import { PageHeader, TxLink } from "@/components/common";
 import { RequireWallet } from "@/components/wallet";
 import {
   Alert,
@@ -59,15 +60,37 @@ import { keccak256, toHex } from "viem";
 
 const EMPTY_ITEM = { description: "", quantity: "1", unitPriceUsd: "" };
 
+const CREATE_STEPS: Array<{ icon: LucideIcon; index: string; label: string; detail: string }> = [
+  { icon: FileText, index: "01", label: "Draft", detail: "Terms stay local" },
+  { icon: LockKeyhole, index: "02", label: "Seal", detail: "Encrypt to the TEE" },
+  { icon: Cpu, index: "03", label: "Verify", detail: "Validate confidentially" },
+  { icon: Send, index: "04", label: "Relay", detail: "Commit minimal proof" },
+];
+
 export default function NewInvoicePage() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">New invoice</h1>
-        <p className="text-sm text-muted-foreground">
-          Line items are encrypted in your browser and validated inside the TEE. They never touch
-          the chain in plaintext.
-        </p>
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow="Private issuance flow"
+        title="New invoice"
+        description="Compose commercial terms locally, seal them to Flare Confidential Compute, and relay only the verified settlement proof."
+      />
+
+      <div className="grid gap-px overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.08] sm:grid-cols-2 lg:grid-cols-4">
+        {CREATE_STEPS.map(({ icon: Icon, index, label, detail }) => (
+          <div key={label} className="flex items-center gap-3 bg-background/90 px-4 py-4">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/20 bg-primary/[0.08] text-primary">
+              <Icon className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <div>
+              <p className="font-display text-sm font-semibold">
+                <span className="mr-2 font-mono text-[0.62rem] text-foreground/30">{index}</span>
+                {label}
+              </p>
+              <p className="mt-0.5 text-xs text-foreground/40">{detail}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
       {!isEscrowConfigured ? (
@@ -270,7 +293,10 @@ function InvoiceForm() {
           </CardHeader>
           <CardContent className="space-y-4">
             {fields.map((field, index) => (
-              <div key={field.id} className="rounded-lg border border-border p-4">
+              <div
+                key={field.id}
+                className="rounded-2xl border border-white/[0.07] bg-black/15 p-4 transition-colors focus-within:border-primary/25"
+              >
                 <div className="mb-3 flex items-center justify-between">
                   <span className="text-xs font-medium text-muted-foreground">
                     Item {index + 1}
@@ -429,7 +455,7 @@ function InvoiceForm() {
         ) : null}
       </form>
 
-      <aside className="space-y-6">
+      <aside className="space-y-6 lg:sticky lg:top-28 lg:self-start">
         <TotalsPanel totals={totals} />
         <ProgressPanel state={confidentialFlow.state} onReset={confidentialFlow.reset} />
       </aside>
