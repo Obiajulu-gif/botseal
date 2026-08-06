@@ -1,0 +1,19 @@
+# Never upload local env files. .env.production IS uploaded deliberately — it
+# holds only public on-chain addresses and is needed at build time.
+.env
+.env.local
+.env.*.local
+
+# Build output and dependencies — Vercel installs and builds from source.
+node_modules
+.next
+out
+
+# Test material is not needed to build or serve the app.
+tests
+vitest.config.ts
+playwright.config.ts
+test-results
+playwright-report
+
+*.tsbuildinfo

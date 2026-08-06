@@ -42,6 +42,40 @@ export function useBuyerInvoiceIds(address?: Hex) {
   });
 }
 
+/**
+ * Reads the escrow's configured TEE signing address.
+ *
+ * Having an InstructionSender address is not enough to offer the confidential flow: until the owner
+ * has called `setTeeAddress`, `relayConfidentialInvoice` reverts with `TeeNotConfigured`. Without
+ * this check the UI would happily take a user through encryption and a paid instruction transaction
+ * toward a relay that cannot succeed.
+ */
+export function useTeeAddress() {
+  return useReadContract({
+    abi: escrowAbi,
+    address: env.escrowAddress as Hex | undefined,
+    functionName: "teeAddress",
+    query: { enabled: Boolean(env.escrowAddress), staleTime: 30_000 },
+  });
+}
+
+/**
+ * True only when the confidential path can actually complete end to end: an InstructionSender to
+ * submit through, and a TEE signer the escrow will accept a result from.
+ */
+export function useConfidentialAvailable(): { available: boolean; isLoading: boolean } {
+  const { data, isLoading } = useTeeAddress();
+  const teeConfigured =
+    typeof data === "string" && data.toLowerCase() !== ZERO_ADDRESS;
+
+  return {
+    available: Boolean(env.instructionSenderAddress) && teeConfigured,
+    isLoading,
+  };
+}
+
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
 /** Fetches one invoice struct. */
 export function useInvoice(invoiceId?: bigint) {
   return useReadContract({

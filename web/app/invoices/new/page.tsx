@@ -37,7 +37,7 @@ import {
   useConfidentialInvoice,
   type ConfidentialState,
 } from "@/hooks/use-confidential-invoice";
-import { useEscrowWrite } from "@/hooks/use-invoices";
+import { useConfidentialAvailable, useEscrowWrite } from "@/hooks/use-invoices";
 import { escrowAddress } from "@/lib/contracts";
 import { env, isEscrowConfigured, isInstructionSenderConfigured } from "@/lib/env";
 import {
@@ -87,7 +87,9 @@ export default function NewInvoicePage() {
 function InvoiceForm() {
   const router = useRouter();
   const { address } = useAccount();
-  const confidential = useConfidentialInvoice();
+  const confidentialFlow = useConfidentialInvoice();
+  const confidential = useConfidentialAvailable();
+  const confidentialReady = confidential.available;
   const publicWrite = useEscrowWrite();
   const [submitting, setSubmitting] = useState(false);
 
@@ -120,12 +122,12 @@ function InvoiceForm() {
     }
   }, [watched.items, watched.discountUsd, watched.taxUsd]);
 
-  const busy = submitting || confidential.state.phase !== "idle" || publicWrite.isPending;
+  const busy = submitting || confidentialFlow.state.phase !== "idle" || publicWrite.isPending;
 
   async function onCreateConfidential(values: InvoiceFormValues) {
     if (!address) return;
-    if (!isInstructionSenderConfigured) {
-      toast.error("The FCC InstructionSender address is not configured.");
+    if (!confidentialReady) {
+      toast.error("The confidential path is not available yet — see the note below the form.");
       return;
     }
     if (values.buyer.toLowerCase() === address.toLowerCase()) {
@@ -150,7 +152,7 @@ function InvoiceForm() {
         taxUsd: values.taxUsd,
       });
 
-      const invoiceId = await confidential.create(payload);
+      const invoiceId = await confidentialFlow.create(payload);
 
       if (invoiceId !== undefined) {
         form.reset(); // Clears plaintext descriptions and the reference from component state.
@@ -382,7 +384,10 @@ function InvoiceForm() {
         </Card>
 
         <div className="flex flex-wrap gap-3">
-          <Button type="submit" size="lg" disabled={busy || !isInstructionSenderConfigured}>
+          {/* Gated on the escrow's TEE address, not just the InstructionSender: without a
+              configured signer the relay reverts, and the user would have paid for the
+              instruction transaction before finding out. */}
+          <Button type="submit" size="lg" disabled={busy || !confidentialReady}>
             {busy ? <Spinner /> : null}
             Create private invoice
           </Button>
@@ -400,20 +405,33 @@ function InvoiceForm() {
           ) : null}
         </div>
 
-        {!isInstructionSenderConfigured ? (
+        {!confidentialReady && !confidential.isLoading ? (
           <Alert tone="warning" title="Confidential mode unavailable">
-            <code className="font-mono text-xs">NEXT_PUBLIC_INSTRUCTION_SENDER_ADDRESS</code> is not
-            set, so the private flow is disabled.
-            {env.enablePublicMode
-              ? " The clearly-labelled public fallback remains available."
-              : " Enable NEXT_PUBLIC_ENABLE_PUBLIC_MODE to use the fallback path."}
+            {!isInstructionSenderConfigured ? (
+              <p>
+                <code className="font-mono text-xs">NEXT_PUBLIC_INSTRUCTION_SENDER_ADDRESS</code> is
+                not set, so the private flow is disabled.
+              </p>
+            ) : (
+              <p>
+                The escrow has no TEE signing address configured yet, so{" "}
+                <code className="font-mono text-xs">relayConfidentialInvoice</code> would revert with{" "}
+                <code className="font-mono text-xs">TeeNotConfigured</code>. The button is disabled
+                rather than letting you pay for an instruction that cannot be relayed.
+              </p>
+            )}
+            <p className="mt-2">
+              {env.enablePublicMode
+                ? "The clearly-labelled public fallback remains available."
+                : "Enable NEXT_PUBLIC_ENABLE_PUBLIC_MODE to use the fallback path."}
+            </p>
           </Alert>
         ) : null}
       </form>
 
       <aside className="space-y-6">
         <TotalsPanel totals={totals} />
-        <ProgressPanel state={confidential.state} onReset={confidential.reset} />
+        <ProgressPanel state={confidentialFlow.state} onReset={confidentialFlow.reset} />
       </aside>
     </div>
   );

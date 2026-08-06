@@ -1,0 +1,13 @@
+# Vercel link state — project/org ids for this machine only.
+.vercel
+
+# Local env files are never committed.
+.env
+.env.local
+.env.*.local
+
+# ...but these two are, and neither holds a secret:
+#   .env.example    — the documented template
+#   .env.production — public on-chain addresses, read at build time by Vercel
+!.env.example
+!.env.production

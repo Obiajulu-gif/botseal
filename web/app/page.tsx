@@ -16,6 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/primitives";
 import { env, isEscrowConfigured, isInstructionSenderConfigured } from "@/lib/env";
+import { useConfidentialAvailable } from "@/hooks/use-invoices";
 import { coston2 } from "@/lib/flare";
 
 const FAUCET_URL = "https://faucet.flare.network";
@@ -31,6 +32,7 @@ const FLOW = [
 
 export default function HomePage() {
   const { isConnected } = useAccount();
+  const confidential = useConfidentialAvailable();
 
   return (
     <div className="space-y-10">
@@ -108,8 +110,12 @@ export default function HomePage() {
               <div className="flex items-center justify-between gap-4">
                 <dt className="text-muted-foreground">Confidential mode</dt>
                 <dd>
-                  {isInstructionSenderConfigured ? (
+                  {confidential.isLoading ? (
+                    <Badge variant="neutral">Checking…</Badge>
+                  ) : confidential.available ? (
                     <Badge variant="success">Available</Badge>
+                  ) : isInstructionSenderConfigured ? (
+                    <Badge variant="warning">Awaiting TEE</Badge>
                   ) : (
                     <Badge variant="warning">Not configured</Badge>
                   )}
