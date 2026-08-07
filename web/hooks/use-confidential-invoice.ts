@@ -21,6 +21,7 @@ import { waitForTransactionReceipt, writeContract } from "wagmi/actions";
 import { env, instructionFeeWei } from "@/lib/env";
 import { escrowAbi, instructionSenderAbi, instructionSenderAddress } from "@/lib/contracts";
 import { explainError } from "@/lib/errors";
+import { coston2 } from "@/lib/flare";
 import {
   encryptToTee,
   normaliseFccResponse,
@@ -193,6 +194,8 @@ export function useConfidentialInvoice() {
         let instructionReceipt: TransactionReceipt;
         try {
           const hash = await writeContract(config, {
+            // Pinned so an instruction can never be paid for on the wrong chain.
+            chainId: coston2.id,
             abi: instructionSenderAbi,
             address: instructionSenderAddress(),
             functionName: "sendCreateInvoice",
@@ -238,6 +241,7 @@ export function useConfidentialInvoice() {
         let relayReceipt: TransactionReceipt;
         try {
           const hash = await writeContract(config, {
+            chainId: coston2.id,
             abi: escrowAbi,
             address: payload.escrowContract,
             functionName: "relayConfidentialInvoice",

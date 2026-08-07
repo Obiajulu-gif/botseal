@@ -19,6 +19,7 @@ import { escrowAbi, escrowAddress, type Invoice } from "@/lib/contracts";
 import { explainError } from "@/lib/errors";
 import { env } from "@/lib/env";
 import { txUrl } from "@/lib/explorer";
+import { coston2 } from "@/lib/flare";
 
 /** Ids where the connected address is the seller. */
 export function useSellerInvoiceIds(address?: Hex) {
@@ -150,6 +151,11 @@ export function useEscrowWrite() {
       setTxHash(undefined);
 
       const hash = await writeContract(config, {
+        // Pinning the chain makes a wrong-network send impossible: wagmi throws
+        // ChainMismatchError before broadcasting instead of submitting to whatever chain the
+        // wallet happens to be on. Without this, a wallet left on Ethereum mainnet sends there
+        // and the user gets a raw "gas required exceeds allowance (0)" from the mainnet RPC.
+        chainId: coston2.id,
         abi: escrowAbi,
         address: escrowAddress(),
         functionName,

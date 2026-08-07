@@ -19,6 +19,7 @@ import { erc20Abi, escrowAbi, escrowAddress, fxrpAddress } from "@/lib/contracts
 import { env } from "@/lib/env";
 import { explainError } from "@/lib/errors";
 import { txUrl } from "@/lib/explorer";
+import { coston2 } from "@/lib/flare";
 
 const fxrp = () => env.fxrpAddress as Hex | undefined;
 
@@ -90,6 +91,9 @@ export function useInvoiceQuote(invoiceId?: bigint, enabled = true) {
     retry: false,
     queryFn: async () => {
       const { result } = await simulateContract(config, {
+        // Quote against Coston2 explicitly, so the price shown can never come from whatever
+        // chain the wallet is currently pointed at.
+        chainId: coston2.id,
         abi: escrowAbi,
         address: escrowAddress(),
         functionName: "quoteInvoice",
@@ -126,6 +130,9 @@ export function useApproveFxrp() {
   return useMutation({
     mutationFn: async (amount: bigint) => {
       const hash = await writeContract(config, {
+        // See the note in use-invoices.ts: pinning the chain turns a wrong-network send into a
+        // clear pre-flight error instead of a failed mainnet transaction.
+        chainId: coston2.id,
         abi: erc20Abi,
         address: fxrpAddress(),
         functionName: "approve",

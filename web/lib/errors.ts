@@ -51,7 +51,17 @@ const WALLET_HINTS: Array<[RegExp, string]> = [
     /insufficient funds for gas|insufficient funds for intrinsic/i,
     "Not enough C2FLR to pay for gas. Top up at the Coston2 faucet.",
   ],
-  [/chain mismatch|chain not configured|ChainMismatchError/i, "Switch your wallet to Coston2."],
+  [
+    /chain mismatch|chain not configured|ChainMismatchError|does not match the target chain/i,
+    "Your wallet is on the wrong network. Switch it to Flare Testnet Coston2 (chain 114) and try again.",
+  ],
+  // Seen when a wallet left on another network tries to send: that chain's RPC estimates gas
+  // against an account with a zero balance there. The message names gas, but the cause is almost
+  // always the network, so it is worth saying both.
+  [
+    /gas required exceeds allowance|exceeds allowance \(0\)|cannot estimate gas/i,
+    "The transaction could not be estimated. Check your wallet is on Coston2 (chain 114) and holds C2FLR for gas.",
+  ],
   [/nonce too low|replacement transaction underpriced/i, "A pending transaction is in the way."],
   [/timeout|timed out/i, "The network did not respond in time. Try again."],
 ];

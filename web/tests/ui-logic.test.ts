@@ -170,6 +170,22 @@ describe("explainError", () => {
     );
   });
 
+  it("explains the wrong-network gas estimation failure in terms of the network", () => {
+    // The exact string a wallet left on Ethereum mainnet produces.
+    const raw =
+      'The contract function "createPublicInvoice" reverted with the following reason: ' +
+      "RPC 0x1 Infura eth_sendRawTransaction: gas required exceeds allowance (0)";
+    const explained = explainError(new Error(raw));
+    expect(explained).toMatch(/Coston2/);
+    expect(explained).toMatch(/114/);
+  });
+
+  it("tells the user to switch networks on a chain mismatch", () => {
+    expect(explainError(new Error("ChainMismatchError: chain does not match"))).toMatch(
+      /wrong network/i,
+    );
+  });
+
   it("recognises an ERC-20 allowance failure", () => {
     expect(explainError(new Error("ERC20InsufficientAllowance"))).toMatch(/approve/i);
   });
