@@ -17,7 +17,7 @@ import {
   PrivacyBadge,
   StatusBadge,
 } from "@/components/common";
-import { RequireWallet } from "@/components/wallet";
+import { ConnectButton } from "@/components/wallet";
 import {
   Alert,
   Button,
@@ -66,9 +66,11 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           invoice.
         </Alert>
       ) : (
-        <RequireWallet>
-          <InvoiceDetail invoiceId={BigInt(id)} />
-        </RequireWallet>
+        // Deliberately NOT wrapped in RequireWallet. Everything this page renders is public
+        // on-chain state, so a reviewer following a link should see the record immediately
+        // rather than a connect-wallet prompt. Only the settlement actions need a signer, and
+        // ActionsPanel gates itself on that.
+        <InvoiceDetail invoiceId={BigInt(id)} />
       )}
     </div>
   );
@@ -195,7 +197,22 @@ function ActionsPanel({ invoice }: { invoice: Invoice }) {
   const expiredRefundAvailable =
     invoice.status === InvoiceStatus.Funded && now > Number(invoice.dueAt);
 
-  if (!address) return null;
+  // Disconnected visitors still see the full record above; only the actions need a signer.
+  if (!address) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Actions</CardTitle>
+          <CardDescription>
+            Connect the seller or buyer wallet to fund, release, refund, or cancel this invoice.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ConnectButton />
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (!isBuyer && !isSeller) {
     return (

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 104" width="340" height="104" role="img" aria-label="FlareSeal">
+  <title>FlareSeal</title>
+  <!--
+    Horizontal lockup. The wordmark uses currentColor so it inverts correctly on light and dark
+    surfaces; the mark keeps its brand orange in both.
+  -->
+  <defs>
+    <clipPath id="fsLockupBody">
+      <path d="M 43 3 L 69 27 V 59 L 36 99 L 3 59 V 9 A 6 6 0 0 1 9 3 Z"/>
+    </clipPath>
+  </defs>
+
+  <path fill="#F04A23" d="M 43 3 L 69 27 V 59 L 36 99 L 3 59 V 9 A 6 6 0 0 1 9 3 Z"/>
+  <path fill="#FFFFFF" d="M 43 3 L 69 27 L 48 27 A 5 5 0 0 1 43 22 Z"/>
+  <g clip-path="url(#fsLockupBody)">
+    <polyline points="-4,46 36,86 76,46" fill="none" stroke="#FFFFFF" stroke-width="9"
+              stroke-linejoin="round"/>
+  </g>
+  <path fill="#FFFFFF" d="
+    M 36 19
+    C 42 28, 49 35, 49 44
+    C 49 52, 43 58, 36 58
+    C 29 58, 23 52, 23 44
+    C 23 37, 28 32, 32 25
+    C 33 32, 35 35, 36 33
+    C 37 30, 36 24, 36 19 Z"/>
+
+  <text x="92" y="67" fill="currentColor"
+        font-family="ui-sans-serif, -apple-system, 'Segoe UI', Inter, Helvetica, Arial, sans-serif"
+        font-size="44" font-weight="600" letter-spacing="-1.2">FlareSeal</text>
+</svg>
