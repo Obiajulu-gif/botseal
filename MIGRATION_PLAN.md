@@ -195,7 +195,7 @@ Every phase ends with tests green and a commit. Branch: `botchain-migration` off
 | **4. Rename & brand** | Contracts, packages, env prefixes, dirs, logo, all UI copy | zero `flare\|coston\|ftso\|fxrp` outside `docs/` | ✅ `c120816` |
 | **5. Frontend** | BOT Chain wallet/network config, USDT approve+fund, confidential flow, copy | `make verify` green | ✅ absorbed into 3–4 — 88 tests, lint/typecheck/build clean |
 | **6. Testnet rehearsal → mainnet deploy** | Rehearse on 968, deploy to 677, verify on `scan.botchain.ai`, seed a demo invoice | Mainnet addresses recorded; end-to-end flow with two real wallets | ⛔ **blocked on BOT + USDT** |
-| **7. Docs, video, submission** | README, architecture, security, runbook rewritten. Demo video. Migration answers. | Submission filed before 16:59 WAT Aug 22 | ⏳ next |
+| **7. Docs, video, submission** | README, architecture, security, runbook rewritten. Demo video. Migration answers. | Submission filed before 16:59 WAT Aug 22 | ✅ docs `900a5ac` — video and filing pending |
 
 Phase 5 folded into 2–4: the frontend could not typecheck until the hooks, env and copy moved
 with the contract, so it moved with them rather than being deferred.
