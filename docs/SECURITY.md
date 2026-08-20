@@ -1,48 +1,58 @@
 # Security
 
-An honest account of what FlareSeal protects, what it does not, and what would have to be true
-before it could hold real money.
+An honest account of what BotSeal protects, what it does not, and what would have to be true before
+it could hold real money.
 
 ---
 
-## Encrypted on-chain is not permanent privacy
+## The attestor is a server key, not a TEE
 
-The ECIES ciphertext is written to a public, immutable ledger. Encryption is a **time-bounded**
-guarantee: it protects against adversaries with today's compute and today's cryptanalysis. Anyone
-can retain the ciphertext forever and attack it later.
+This is the largest gap in the system and everything else is smaller than it.
 
-Concretely, this means:
+The attestor is an ordinary process holding an ordinary secp256k1 private key. There is no enclave,
+no hardware attestation, no code-hash proof of what is running. Concretely:
 
-- Invoice contents are confidential **today** against anyone without the TEE's private key.
-- They are not confidential against a future adversary who breaks secp256k1 or AES-128, or who
-  extracts the TEE key.
-- "Harvest now, decrypt later" applies. Do not put anything in a FlareSeal invoice that must stay
-  secret for decades.
+- **An operator with server access can read every invoice** while it is being validated.
+- An operator with the key can mint settlement facts the escrow will accept.
+- Nothing proves to a user that the code processing their invoice is the code in this repository.
 
-A construction with stronger long-term properties would keep the ciphertext off-chain entirely and
-publish only the commitment. FlareSeal deliberately does not, because the on-chain payload is what
-makes the flow auditable end to end.
+The design still keeps plaintext off the chain, binds the terms with a commitment, and recomputes
+every total before signing. Those are real properties. But confidentiality here rests on **who runs
+the server**, not on mathematics or silicon. A user who does not trust the operator gets nothing
+from this that a plain database would not give them.
 
----
+What would close the gap: running the validator inside an attested enclave with reproducible builds
+and publishing the code hash, so a user can verify *which* code holds the key. BOT Chain has no
+confidential-compute primitive to build that on today, which is why this version does not claim it.
 
-## The TEE is simulated
-
-The local stack runs the extension in a **simulated** enclave against live Coston2. There is no
-hardware attestation, so:
-
-- A local operator can, in principle, read decrypted invoices.
-- The "TEE key" is a key held by a process on a normal machine.
-- The code-hash attestation that would prove *which* code is running is absent.
-
-Production FCC requires a real Confidential Space VM with code-hash attestation and reproducible
-builds. Until then, the confidentiality claim is architectural, not enforced. This is the single
-largest gap between this build and something deployable.
+**Do not describe this as a TEE.** The earlier version of this project ran on a chain that had one,
+in simulation, and was equally explicit that simulation is not attestation.
 
 ---
 
-## TEE signer administration
+## Encrypted in transit is not permanent privacy
 
-The escrow verifies against exactly one address, `teeAddress`, set by the owner.
+The ciphertext is sent to a server we operate and discarded after validation. It is not written to
+the chain, which removes the permanent public artifact the previous design had.
+
+What remains public and permanent is the **commitment** — a hash. That is safe against preimage
+attack today, and it mixes in 64 bytes of entropy so it cannot be brute-forced back to a small
+invoice.
+
+Still true:
+
+- Anyone who compromises the attestor host while an invoice is in flight sees plaintext.
+- TLS protects the payload in transit; the ECIES layer means a TLS-terminating proxy still cannot
+  read it, which is the point of encrypting client-side rather than relying on transport security.
+- The seller must retain their own plaintext. There is no on-chain copy to appeal to later, so the
+  ability to *prove* the terms depends on the seller keeping the payload that hashes to the
+  commitment.
+
+---
+
+## Attestor signer administration
+
+The escrow verifies against exactly one address, `attestorAddress`, set by the owner.
 
 **Risk.** Whoever controls the owner key controls which signer the escrow trusts. A malicious or
 compromised owner can point it at a key they hold and mint invoices with arbitrary totals and
@@ -53,46 +63,70 @@ commitments.
 - `fundInvoice` requires `msg.sender == invoice.buyer`.
 - `releasePayment` requires the buyer.
 - `refundBuyer` requires the seller.
-- There is **no owner path to escrowed FXRP** — `recoverUnsupportedToken` reverts with
-  `CannotRecoverEscrowToken` for the FXRP address.
+- There is **no owner path to escrowed funds** — `recoverUnsupportedToken` reverts with
+  `CannotRecoverEscrowToken` for the settlement token.
 
 So the worst case is fabricated invoices that no buyer is obliged to fund, not theft.
 
 **Mitigations for production.** Put the owner behind a multisig or timelock, and emit/monitor
-`TeeAddressUpdated`. Rotating the address does not invalidate existing invoices, which is
-deliberate — settlement of past invoices must not depend on current signer configuration.
+`AttestorAddressUpdated`. Rotating the address does not invalidate existing invoices, which is
+deliberate — settlement of past invoices must not depend on current signer configuration. There is a
+test asserting a rotated attestor leaves an existing funded invoice settleable.
 
 ---
 
-## Price freshness
+## Signature scope
 
-`fundInvoice` reads FTSOv2 on-chain at funding time and rejects:
+EIP-712, with the domain binding `chainId` and `verifyingContract`. A signature is therefore usable
+on exactly one chain, against exactly one escrow, for exactly one set of values.
 
-| Condition | Error |
+| Attack | Outcome |
 |---|---|
-| `priceWei == 0` | `InvalidPrice` |
-| `timestamp > block.timestamp` | `InvalidPrice` |
-| `block.timestamp − timestamp > maxPriceAge` | `StalePrice` |
+| Replay the same attestation | `AttestationAlreadyConsumed` |
+| Relay a testnet signature on mainnet | `InvalidAttestorSignature` (chainId in domain) |
+| Relay a signature minted for another deployment | `InvalidAttestorSignature` (verifyingContract in domain) |
+| Alter any field after signing | `InvalidAttestorSignature` |
+| Relay someone else's attestation | `InvalidResultSeller` |
+| Fail a relay, then retry | id was never consumed; the retry works |
 
-`maxPriceAge` is immutable, validated at construction to be non-zero and at most 24 hours. A stale
-feed makes funding fail rather than settle at a wrong price.
-
-The frontend never supplies a price. It displays one from a **simulation** of the contract's own
-`quoteInvoice`, and the contract re-reads the feed independently.
+`attestationId` is derived from the commitment, which mixes in per-invoice entropy — so the id is
+unpredictable to anyone who has not seen the payload, and cannot be squatted by a third party
+front-running a known invoice.
 
 ---
 
-## Slippage
+## No price feed to attack
 
-The only pricing input the buyer contributes is `maxFxrpAmount`:
+The previous design read an oracle at funding time and needed staleness bounds, a slippage ceiling
+and a freshness display. All of that is gone: a USD total settled in a USD stablecoin has nothing to
+price.
 
-```
-maxFxrpAmount = ceil(quoted × (10000 + slippageBps) / 10000)
-```
+The amount due is fixed when the invoice is created and derived from the invoice's own stored cent
+total. `fundInvoice` accepts **no amount from the caller** — it recomputes the figure and transfers
+exactly that. There is no oracle to manipulate, no window in which a quote can go stale, and no path
+by which a buyer can influence what they pay.
 
-If the freshly computed requirement exceeds it, the transaction reverts with `SlippageExceeded`.
-This can only cause a failure, never an overpayment. Rounding is up so the ceiling is never a unit
-short of a legitimate quote.
+The residual assumption is that **USDT is worth a dollar.** If it depegs, an invoice denominated in
+dollars settles in a token worth less than its face value. That risk is real, is not mitigated here,
+and is the honest cost of removing the oracle. It is also a risk both parties can see and price,
+unlike an oracle failure.
+
+---
+
+## Settlement-token integrity
+
+`tokenScale` is `10 ** decimals()`, cached at construction. A token that later changes its reported
+decimals cannot re-price existing invoices.
+
+The deploy script refuses:
+
+- A mainnet token that does not report `USDT` and 6 decimals.
+- Any token reporting more than 18 or fewer than 2 decimals.
+- A testnet run pointed at the mainnet USDT address — that address holds an unrelated 18-decimal
+  token on chain 968, and deploying against it would mis-scale every invoice by 10¹².
+
+The smoke script re-checks `tokenScale == 10 ** decimals()` against the deployed contract, because
+that particular mismatch is silent and catastrophic.
 
 ---
 
@@ -103,23 +137,25 @@ No floating point touches a monetary value anywhere:
 - **Browser** — `parseUsdToCents` parses the decimal string by hand. `Number("0.07") * 100` is
   `7.000000000000001`; there is a test asserting `parseUsdToCents("0.07") === 7n`. More than two
   decimal places is rejected, not rounded.
-- **Extension** — `bigint` only, with amounts arriving as decimal strings so JSON cannot round them.
+- **Attestor** — `bigint` only, with amounts arriving as decimal strings so JSON cannot round them.
+  A JSON *number* where a string is expected is rejected outright, with a test for it.
 - **Contract** — `uint256` with `Math.mulDiv(..., Math.Rounding.Ceil)`, which computes the full
   512-bit intermediate product and cannot overflow on the multiply.
 
-Rounding is consistently **up** at the cents → token-units boundary, so the escrow is never
-under-funded by truncation.
+For a 6-decimal stablecoin the conversion is exact — 10⁶ divides by 100 — so the ceiling never
+engages in practice. It is there for a token with fewer than two decimals, which the deploy script
+refuses anyway. Belt and braces.
 
 ---
 
 ## ERC-20 allowance risk
 
-The frontend approves the **exact** slippage-adjusted amount and never requests unlimited approval.
-Residual allowance after funding is therefore at most the slippage buffer, and only the escrow can
-spend it.
+The frontend approves the **exact** amount required and never requests unlimited approval. Because
+the amount cannot move, there is no slippage buffer left over — the approval is spent to the wei by
+the funding call.
 
 Standard caveats still apply: an approval is a standing authorisation until spent or revoked, and a
-buyer who abandons a payment mid-flow leaves a small allowance in place. All token movement uses
+buyer who abandons a payment mid-flow leaves an allowance in place. All token movement uses
 `SafeERC20`, so a non-standard token that returns `false` instead of reverting is still caught.
 
 ---
@@ -135,10 +171,9 @@ Every state-changing function:
 5. Is `nonReentrant` where tokens move.
 6. Is `whenNotPaused`.
 
-Checks-effects-interactions is applied literally: in `fundInvoice`, `releasePayment`, `refundBuyer`,
+Checks-effects-interactions is applied literally: in `fundInvoice`, `releasePayment`, `refundBuyer`
 and `claimExpiredRefund`, status and `totalEscrowed` are updated and the event emitted *before*
-`safeTransfer`/`safeTransferFrom`. A reentrant callback would find the invoice already in its
-terminal state.
+`safeTransfer`/`safeTransferFrom`. A reentrant callback would find the invoice already terminal.
 
 `claimExpiredRefund` additionally requires `block.timestamp > dueAt + refundGracePeriod`, so a
 seller who delivered late still has a bounded window to be paid.
@@ -147,38 +182,45 @@ seller who delivered late still has a bounded window to be paid.
 
 ## No owner withdrawal path
 
-There is no function by which the owner can move escrowed FXRP. `recoverUnsupportedToken` exists for
-tokens accidentally sent to the contract and explicitly reverts for FXRP. `pause` can halt new
-activity but cannot redirect funds — and note that pausing **does** block release and refund, so a
-malicious owner could freeze settlement. That is a griefing vector, not a theft vector, and is
-another reason to put the owner behind a multisig.
+There is no function by which the owner can move escrowed funds. `recoverUnsupportedToken` exists
+for tokens accidentally sent to the contract and explicitly reverts for the settlement token.
+
+`pause` can halt new activity but cannot redirect funds — and note that pausing **does** block
+release and refund, so a malicious owner could freeze settlement. That is a griefing vector, not a
+theft vector, and is another reason to put the owner behind a multisig.
 
 ---
 
-## Data handling in the frontend
+## Data handling in the frontend and the attestor
 
 - The plaintext payload exists only as a local `const` inside the creation function. It is never
   placed in React state, `localStorage`, a URL, a toast, or an error report.
 - `nonce` and `salt` are generated inside the payload builder and dropped with it.
 - Form state is reset after a successful creation.
-- The FCC proxy URL is server-only; the browser talks to `/api/fcc/*`.
-- `/api/fcc/info` returns only the public key, derived TEE address, extension id, and chain id — the
-  attestation document, machine data, and proxy signature are withheld.
-- Error messages name a field and a rule. The extension's rejection strings never echo a submitted
-  value, so surfacing `result.log` in the UI cannot leak invoice content.
+- `ATTESTOR_PRIVATE_KEY` is server-only. `lib/attestor/signer.ts` imports `server-only`, so pulling
+  it into a client component is a build error, not a silent leak into the bundle.
+- `/api/attestor/info` returns only the public key, the signer address, the chain id and the escrow
+  binding. All four are public by construction.
+- The attestor never logs, persists or echoes plaintext. Validation errors name a field and a rule.
+  There is a test asserting a rejected invoice's description does not appear in the error message.
+- Decryption failures are uniform, so the endpoint cannot be used as an oracle.
+- Request bodies are capped at 256 KB of hex, bounding the work an anonymous caller can cause.
 
 ---
 
 ## Remaining work before this could hold real value
 
-1. **Third-party audit** of `FlareSealEscrow.sol` and the extension handler.
-2. **Real attested TEE** on Confidential Space with verified code-hash and reproducible builds.
-3. **Owner hardening** — multisig or timelock, with monitoring on `TeeAddressUpdated` and `Paused`.
-4. **Signer rotation policy** — documented procedure and key custody.
-5. **FTSOv2 parameter review** — is 600s the right `maxPriceAge` for XRP's volatility?
-6. **Griefing review** — the pause-blocks-settlement path above.
-7. **Formal verification** of the state machine and the cents → token-units conversion.
-8. **Front-running review** — invoice creation is not order-sensitive, but funding at a moving price
-   deserves analysis.
+1. **Third-party audit** of `BotSealEscrow.sol` and the attestor route.
+2. **Attested execution** for the validator, with reproducible builds and a published code hash —
+   the only thing that would turn the confidentiality claim from policy into a guarantee.
+3. **Owner hardening** — multisig or timelock, with monitoring on `AttestorAddressUpdated` and
+   `Paused`.
+4. **Attestor key custody and rotation policy** — documented procedure, HSM or KMS rather than an
+   environment variable.
+5. **Rate limiting** on `/api/attestor/create`. It is currently unauthenticated and does real
+   cryptographic work per request.
+6. **Depeg policy** — what happens to an in-flight invoice if the settlement token loses its peg.
+7. **Griefing review** — the pause-blocks-settlement path above.
+8. **Formal verification** of the state machine and the cents → token-units conversion.
 9. **Commitment revelation UX** — there is currently no in-app way for a seller to prove terms to a
-   third party by revealing the payload.
+   third party by revealing the payload, which is the feature the commitment exists to enable.

@@ -1,54 +1,76 @@
-# FlareSeal
+# BotSeal
 
-**Live app: https://flareseal.vercel.app**
+Confidential invoices, settled in **USDT on BOT Chain**.
 
-Confidential invoice creation and FXRP escrow on **Flare Testnet Coston2**.
+A B2B invoice contains things neither party wants public: line items, unit prices, customer
+identities, tax treatment, the discount you gave this client and not that one. Putting that on a
+public ledger to get escrow is a bad trade. BotSeal doesn't make you take it.
 
-Invoice line items, customer identities, tax details, and the commitment's entropy are encrypted in
-the browser and validated inside a **Flare Confidential Compute (FCC)** TEE. What reaches the chain
-is the minimum settlement needs: the parties, the USD total, the due date, and a 32-byte commitment
-binding the private terms. Payment is escrowed in **FXRP**, priced on-chain from the **FTSOv2**
-XRP/USD feed.
+Line items, references, tax detail and the commitment's entropy are encrypted in the browser and
+validated off-chain. What reaches the chain is the minimum settlement needs: the two parties, the
+USD total, the due date, and a 32-byte commitment binding the private terms. Payment is escrowed in
+USDT and released, refunded or reclaimed by rules the contract enforces.
+
+> **Provenance.** BotSeal is a port of an earlier project of ours that ran on Flare. The BOT Chain
+> version is not a redeployment: the price oracle is gone, settlement moved to USDT, the
+> confidential path was rebuilt, and the seller signs one transaction instead of two. See
+> [SUBMISSION.md](SUBMISSION.md) for what specifically changed and why.
 
 ---
 
 ## Architecture
 
 ```
-Browser                      Chain (Coston2)                 TEE (FCC extension)
-───────                      ───────────────                 ───────────────────
+Browser                          Attestor (server)              Chain (BOT Chain)
+───────                          ─────────────────              ─────────────────
 invoice form
    │
-   ├─ ECIES-encrypt to TEE key
+   ├─ ECIES-encrypt to attestor key
    │
-   └─ sendCreateInvoice(ciphertext) ──> FlareSealInstructionSender
-                                              │
-                                              └─ registry ──────> INVOICE/CREATE
-                                                                     │ decrypt
-                                                                     │ validate
-                                                                     │ total (bigint cents)
-                                                                     │ termsCommitment
-                                                                     ▼
-                                                          ActionResult (TEE-signed)
-   ┌──────────── poll /action/result/<id> ◀───────────────────────────┘
+   └─ POST /api/attestor/create ──▶ decrypt
+                                    validate every field
+                                    recompute total (bigint cents)
+                                    derive termsCommitment
+                                    sign EIP-712
+   ┌──────── attestation + signature ◀┘
    │
-   └─ relayConfidentialInvoice(exact bytes) ──> FlareSealEscrow
-                                                     │ verify TEE signature
-                                                     │ reject replayed actionId
-                                                     └─ Invoice { Pending, confidential }
+   └─ relayConfidentialInvoice(attestation, signature) ──▶ BotSealEscrow
+                                                             │ verify EIP-712 signature
+                                                             │ reject replayed attestationId
+                                                             └─ Invoice { Pending, confidential }
 
-buyer ─ approve FXRP ─> fundInvoice ─> FTSOv2 XRP/USD ─> escrow holds FXRP
+buyer ─ approve USDT ─▶ fundInvoice ─▶ escrow holds USDT
                           releasePayment / refundBuyer / claimExpiredRefund
 ```
 
 | Component | Path | Stack |
 |---|---|---|
 | Escrow contract | `contracts/` | Solidity 0.8.27, Hardhat, OpenZeppelin v5 |
-| FCC extension | `fcc/` | TypeScript on the official `fce-extension-scaffold`, Docker |
+| Attestor service | `web/app/api/attestor/`, `web/lib/attestor/` | Next.js route handlers, viem, ecies-geth |
 | Frontend | `web/` | Next.js 15 App Router, wagmi + viem, Tailwind |
 
-Detailed docs: [ARCHITECTURE](docs/ARCHITECTURE.md) · [FCC flow](docs/FCC_FLOW.md) ·
+Detailed docs: [Architecture](docs/ARCHITECTURE.md) · [Confidential flow](docs/CONFIDENTIAL_FLOW.md) ·
 [Security](docs/SECURITY.md) · [Deployment](docs/DEPLOYMENT.md) · [Demo runbook](docs/DEMO_RUNBOOK.md)
+
+---
+
+## What the attestor is, and is not
+
+The attestor is **a server-side signing key that we operate.** It is not a trusted execution
+environment, there is no hardware attestation, and an operator with server access can read invoice
+plaintext while it is being validated.
+
+What the design does guarantee:
+
+- The plaintext never reaches the chain — only a hash of it does.
+- The commitment binds the private terms, so a seller can prove later exactly what was invoiced.
+- The total is recomputed from the line items before it is signed. A browser that lies about its
+  own arithmetic gets a rejection, not a signature.
+- A signed result is single-use and bound to one chain and one escrow contract.
+
+What it does not guarantee: that we cannot read your invoice. If that matters to you, this is not
+yet the right tool. [docs/SECURITY.md](docs/SECURITY.md) is explicit about the gap and what would
+have to change.
 
 ---
 
@@ -56,34 +78,28 @@ Detailed docs: [ARCHITECTURE](docs/ARCHITECTURE.md) · [FCC flow](docs/FCC_FLOW.
 
 | Tool | Version | Needed for |
 |---|---|---|
-| Node.js | ≥ 20 | contracts, frontend, FCC extension |
+| Node.js | ≥ 20 | contracts, frontend, attestor |
 | npm | ≥ 10 | package management |
-| Docker + Compose | current | the FCC TEE stack only |
-| Go | ≥ 1.22 | FCC deployment tooling and the end-to-end test |
-| ngrok or cloudflared | current | exposing the FCC proxy over HTTPS |
 
-Contracts, the frontend, and the FCC unit tests run without Docker. Only the live confidential flow
-needs the container stack.
+No Docker, no Go, no tunnel, no container stack. The confidential path runs inside the Next.js app.
 
 ---
 
-## Wallet and faucet setup
+## Networks
 
-1. Add Coston2 to your wallet:
+| | Mainnet | Testnet |
+|---|---|---|
+| Chain ID | 677 | 968 |
+| RPC | `https://rpc.botchain.ai` | `https://rpc.bohr.life` |
+| Explorer | `https://scan.botchain.ai` | `https://scan.bohr.life` |
+| Native token | BOT | tBOT — [faucet](https://faucet.botchain.ai) |
+| Settlement token | USDT `0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C` (6 dec) | deploy a 6-decimal `MockERC20` |
 
-   | Field | Value |
-   |---|---|
-   | Network | Flare Testnet Coston2 |
-   | Chain ID | 114 |
-   | RPC | `https://coston2-api.flare.network/ext/C/rpc` |
-   | Currency | C2FLR |
-   | Explorer | `https://coston2-explorer.flare.network` |
+There is **no mainnet faucet**. Mainnet BOT has to be acquired before deploying.
 
-2. Get C2FLR (gas) and test FXRP from the [Flare faucet](https://faucet.flare.network).
-
-3. The demo needs **two** addresses — a seller and a buyer. The escrow rejects an invoice where
-   they match. Import a second account in your wallet's own UI; never share or generate a mnemonic
-   through this project.
+The demo needs **two** addresses — a seller and a buyer. The escrow rejects an invoice where they
+match. Import a second account in your wallet's own UI; never share or generate a mnemonic through
+this project.
 
 ---
 
@@ -97,12 +113,6 @@ Check what configuration is still missing at any point:
 
 ```bash
 node scripts/check-env.mjs
-```
-
-Confirm the chain and the real Flare contracts are reachable — no key required:
-
-```bash
-node scripts/smoke-coston2.mjs
 ```
 
 ---
@@ -121,114 +131,74 @@ cd contracts && npm run coverage
 
 ---
 
-## Deploy the escrow to Coston2
+## Deploy
+
+Full sequence with every variable explained: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). In short:
 
 ```bash
 cp contracts/.env.example contracts/.env
 ```
 
-Fill in `DEPLOYER_PRIVATE_KEY` with a **funded testnet key you control**. It is read only from the
+Fill in `DEPLOYER_PRIVATE_KEY` with a **funded key you control**. It is read only from the
 environment and is gitignored.
 
-Resolve the real FXRP and FTSOv2 addresses through the Flare Contract Registry and the FAssets
-Asset Manager:
+Rehearse on testnet first — it costs nothing and catches everything except gas price:
 
 ```bash
-cd contracts && npm run resolve:coston2
+cd contracts && npm run deploy:testnet
 ```
 
-Deploy:
+Then mainnet:
 
 ```bash
-cd contracts && npm run deploy:coston2
+cd contracts && npm run deploy:botchain
 ```
 
-This writes `contracts/deployments/coston2.json` (public metadata only — safe to commit).
+The deploy script refuses to proceed against a mainnet token that does not report `USDT`/6
+decimals, and refuses a testnet run pointed at the mainnet USDT address — that address holds an
+unrelated 18-decimal token on chain 968, and using it would mis-scale every invoice by 10¹².
+
+Read-only verification of whatever is deployed, no key required:
+
+```bash
+cd contracts && npm run smoke:botchain
+```
 
 ---
 
-## FCC configuration
+## Attestor
 
 ```bash
-cp fcc/.env.example fcc/.env
+cp web/.env.example web/.env.local
 ```
 
-Set `ESCROW_CONTRACT_ADDRESS` to the address just deployed — the extension refuses to mint a result
-for any other escrow.
+`ATTESTOR_PRIVATE_KEY` is the signing key the escrow will verify against. Generate it in your own
+wallet tooling, put it in the host's secret store, and rotate it after any public demo. It must
+never be prefixed `NEXT_PUBLIC_` — that would inline it into the browser bundle. `lib/attestor/signer.ts`
+imports `server-only`, so an accidental client import is a build error rather than a leak.
 
-Bring up the stack (`extension-tee`, `ext-proxy`, `redis`):
+Point the escrow at the attestor's address:
 
 ```bash
-cd fcc
-./scripts/use-chain.sh local coston2 typescript
-./scripts/pre-build.sh
-./scripts/start-services.sh
-./scripts/post-build.sh
+cd contracts && npm run configure-attestor:botchain
 ```
 
-Or in one step:
+Verify the running service end to end — encrypts a real invoice, checks the total was recomputed,
+the signature recovers to the advertised address, an invalid invoice is refused and a garbage
+ciphertext fails without revealing why:
 
 ```bash
-cd fcc && ./scripts/full-setup.sh --chain coston2 --test
+cd web && npm run check-attestor
 ```
-
-### Tunnel
-
-The proxy's external port is `6674`. Expose it over HTTPS:
-
-```bash
-ngrok http 6674
-```
-
-or:
-
-```bash
-cloudflared tunnel --url http://localhost:6674
-```
-
-Put the resulting URL in `EXT_PROXY_URL` (fcc) and `FCC_PROXY_URL` (web). A restarted tunnel gets a
-new URL — update both.
-
-### TEE address
-
-The escrow verifies results against one signing address, read from the proxy's `/info`:
-
-```bash
-cd contracts && npm run configure-tee:coston2
-```
-
-The script derives the address from `teeInfo.publicKey`, sets it via `setTeeAddress`, and reads it
-back. Never point it at the proxy wallet, the extension owner, or the deployer.
 
 ---
 
 ## Frontend
 
 ```bash
-cp web/.env.example web/.env.local
-```
-
-Fill in the escrow, InstructionSender, and FXRP addresses, plus `FCC_PROXY_URL`.
-
-```bash
-make sync-abi     # copy fresh ABIs out of the artifact trees
+make sync-abi
 cd web && npm run dev
 ```
-
-`FCC_PROXY_URL` is server-only: the browser calls `/api/fcc/*`, which proxies to it. The tunnel URL
-is never sent to a page visitor.
-
----
-
-## Demo
-
-Full script with exact commands: [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md). In short:
-
-1. Connect the **seller** wallet, create a private invoice with two line items.
-2. Confirm the instruction transaction, wait for the TEE result, confirm the relay.
-3. Open the invoice — no line items are on-chain, only the commitment.
-4. Connect the **buyer** wallet, open `/pay/<id>`.
-5. Approve FXRP, fund at the live FTSOv2 rate, release payment.
 
 ---
 
@@ -238,41 +208,35 @@ Full script with exact commands: [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md). I
 make verify
 ```
 
-Runs the contract suite, the FCC extension unit tests, then the frontend's lint, typecheck, unit
-tests, and production build. No chain, wallet, or Docker required.
+Runs the contract suite, then the frontend's lint, typecheck, unit tests and production build. No
+chain, wallet or key required.
 
 ---
 
 ## Deployed addresses
 
-Live on **Flare Testnet Coston2** (chain 114):
+Not yet deployed to mainnet. Addresses land in `contracts/deployments/botchain-677.json` and are
+recorded here the moment they exist.
 
 | Contract | Address |
 |---|---|
-| `FlareSealEscrow` | [`0xEe7aDeb4268CDC40F3138F7caF08432A1433F204`](https://coston2-explorer.flare.network/address/0xEe7aDeb4268CDC40F3138F7caF08432A1433F204) |
-| FXRP (`FTestXRP`, 6 dec) | [`0x0b6A3645c240605887a5532109323A3E12273dc7`](https://coston2-explorer.flare.network/address/0x0b6A3645c240605887a5532109323A3E12273dc7) |
-| FTSOv2 | [`0xC4e9c78EA53db782E28f28Fdf80BaF59336B304d`](https://coston2-explorer.flare.network/address/0xC4e9c78EA53db782E28f28Fdf80BaF59336B304d) |
-| `FlareSealInstructionSender` | Not yet deployed — needs the FCC stack |
-
-Deployment transaction:
-[`0x1e022add…b5e5acf1`](https://coston2-explorer.flare.network/tx/0x1e022add9356a631382b19f344f4f4c96489cc0d20bd66caf1207d94b5e5acf1)
-
-`teeAddress` is not yet set, so `relayConfidentialInvoice` reverts with `TeeNotConfigured` until the
-FCC stack is running. Full record in [BUILD_REPORT.md](BUILD_REPORT.md).
+| `BotSealEscrow` | _pending_ |
+| USDT (settlement) | [`0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C`](https://scan.botchain.ai/token/0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C) |
 
 ---
 
 ## Known limitations
 
-- **Simulated TEE.** The local stack runs the extension in a simulated enclave against live
-  Coston2. It is not hardware-attested, so a local operator could in principle observe plaintext.
-  Production FCC requires a real Confidential Space VM with code-hash attestation.
-- **Encrypted, not eternally private.** The ciphertext is public and permanent on-chain. It resists
-  today's adversaries, not tomorrow's.
-- **Testnet only.** Coston2, test FXRP, no real value.
-- **Public fallback is unverified.** `createPublicInvoice` accepts a caller-supplied commitment that
-  no TEE validated. It exists for demo continuity and is off unless
-  `NEXT_PUBLIC_ENABLE_PUBLIC_MODE=true`. The UI labels every invoice created this way.
+- **The attestor is a server key, not a TEE.** No hardware attestation. An operator can read
+  plaintext during validation. This is the largest gap between this build and something that should
+  hold real money.
+- **Encrypted, not eternally private.** The ciphertext is transmitted to a server we run; the
+  commitment is public and permanent. Nothing here is safe against an adversary with decades.
 - **Unaudited.** No third-party security review.
+- **Public fallback is unverified.** `createPublicInvoice` accepts a caller-supplied commitment that
+  nobody validated. It exists for demo continuity, is off unless
+  `NEXT_PUBLIC_ENABLE_PUBLIC_MODE=true`, and the UI labels every invoice created this way.
+- **Owner can pause settlement.** `pause()` blocks release and refund as well as creation. That is a
+  griefing vector, and a reason to put the owner behind a multisig before real value is involved.
 - **Injected wallets only.** WalletConnect needs an external project id; the frontend uses the
   injected connector so it runs with no external accounts.
