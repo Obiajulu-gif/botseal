@@ -1,5 +1,5 @@
 /**
- * Coston2 explorer URL construction.
+ * BOT Chain explorer URL construction.
  *
  * The base URL comes from the environment so a self-hosted or mirrored explorer works without a
  * code change. Trailing slashes are normalised so `.../tx//0x…` can never be produced.

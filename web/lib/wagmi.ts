@@ -3,7 +3,7 @@
  *
  * The injected connector is used rather than WalletConnect: WalletConnect requires a project id
  * from an external account, and a build that cannot be run without one would be a worse default
- * for a testnet demo. MetaMask and any other injected Coston2 wallet work out of the box.
+ * for a public demo. MetaMask and any other injected BOT Chain wallet work out of the box.
  */
 
 import { createConfig, http } from "wagmi";
@@ -12,14 +12,14 @@ import { createConfig, http } from "wagmi";
 // and break the production build.
 import { injected } from "@wagmi/core";
 
-import { coston2 } from "./flare";
+import { botchain } from "./chain";
 import { env } from "./env";
 
 export const wagmiConfig = createConfig({
-  chains: [coston2],
+  chains: [botchain],
   connectors: [injected()],
   transports: {
-    [coston2.id]: http(env.rpcUrl),
+    [botchain.id]: http(env.rpcUrl),
   },
   ssr: true,
 });

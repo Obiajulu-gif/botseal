@@ -30,11 +30,11 @@ describe("invoiceStatusLabel", () => {
 
 describe("explorer URLs", () => {
   it("builds a transaction URL", () => {
-    expect(txUrl(TX)).toBe(`https://coston2-explorer.flare.network/tx/${TX}`);
+    expect(txUrl(TX)).toBe(`https://scan.botchain.ai/tx/${TX}`);
   });
 
   it("builds an address URL", () => {
-    expect(addressUrl(ADDRESS)).toBe(`https://coston2-explorer.flare.network/address/${ADDRESS}`);
+    expect(addressUrl(ADDRESS)).toBe(`https://scan.botchain.ai/address/${ADDRESS}`);
   });
 
   it("never produces a double slash", () => {

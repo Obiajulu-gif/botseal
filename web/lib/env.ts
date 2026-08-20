@@ -38,7 +38,7 @@ const publicSchema = z.object({
   chainId: z
     .string()
     .trim()
-    .transform((value) => (value.length === 0 ? 114 : Number(value)))
+    .transform((value) => (value.length === 0 ? 677 : Number(value)))
     .pipe(z.number().int().positive()),
   rpcUrl: z.string().url(),
   explorerUrl: z.string().url(),
@@ -52,14 +52,14 @@ const publicSchema = z.object({
 
 export type PublicEnv = z.infer<typeof publicSchema>;
 
-const DEFAULT_RPC_URL = "https://coston2-api.flare.network/ext/C/rpc";
-const DEFAULT_EXPLORER_URL = "https://coston2-explorer.flare.network";
+const DEFAULT_RPC_URL = "https://rpc.botchain.ai";
+const DEFAULT_EXPLORER_URL = "https://scan.botchain.ai";
 
 function readPublicEnv(): PublicEnv {
   const parsed = publicSchema.safeParse({
     chainId: process.env.NEXT_PUBLIC_CHAIN_ID ?? "",
-    rpcUrl: process.env.NEXT_PUBLIC_COSTON2_RPC_URL || DEFAULT_RPC_URL,
-    explorerUrl: process.env.NEXT_PUBLIC_COSTON2_EXPLORER_URL || DEFAULT_EXPLORER_URL,
+    rpcUrl: process.env.NEXT_PUBLIC_RPC_URL || DEFAULT_RPC_URL,
+    explorerUrl: process.env.NEXT_PUBLIC_EXPLORER_URL || DEFAULT_EXPLORER_URL,
     escrowAddress: process.env.NEXT_PUBLIC_ESCROW_ADDRESS ?? "",
     instructionSenderAddress: process.env.NEXT_PUBLIC_INSTRUCTION_SENDER_ADDRESS ?? "",
     fxrpAddress: process.env.NEXT_PUBLIC_FXRP_ADDRESS ?? "",
@@ -73,7 +73,7 @@ function readPublicEnv(): PublicEnv {
     const detail = parsed.error.issues
       .map((issue) => `  NEXT_PUBLIC_${issue.path.join(".")}: ${issue.message}`)
       .join("\n");
-    throw new Error(`Invalid FlareSeal public environment:\n${detail}`);
+    throw new Error(`Invalid public environment configuration:\n${detail}`);
   }
 
   return parsed.data;

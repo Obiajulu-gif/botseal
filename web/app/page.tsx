@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/primitives";
 import { useConfidentialAvailable } from "@/hooks/use-invoices";
 import { env, isEscrowConfigured, isInstructionSenderConfigured } from "@/lib/env";
-import { coston2 } from "@/lib/flare";
+import { botchain } from "@/lib/chain";
 import { cn } from "@/lib/utils";
 
 const FAUCET_URL = "https://faucet.flare.network";
@@ -88,7 +88,7 @@ export default function HomePage() {
             </Badge>
             <Badge variant="neutral">
               <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_12px_hsl(var(--accent))]" />
-              Coston2 · chain {coston2.id}
+              Coston2 · chain {botchain.id}
             </Badge>
           </div>
 
