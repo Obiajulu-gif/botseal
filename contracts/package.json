@@ -1,22 +1,21 @@
 {
-  "name": "flareseal-contracts",
+  "name": "botseal-contracts",
   "version": "1.0.0",
   "private": true,
-  "description": "FlareSeal confidential invoice + FXRP escrow contracts for Flare Testnet Coston2",
+  "description": "BotSeal confidential invoice + USDT escrow contracts for BOT Chain",
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
     "coverage": "hardhat coverage",
     "clean": "hardhat clean",
     "export-abi": "hardhat run scripts/export-abi.ts",
-    "compile:fcc": "hardhat --config hardhat.fcc.config.ts compile",
-    "export-fcc-bindings": "node scripts/export-fcc-bindings.mjs",
     "deploy:botchain": "hardhat run scripts/deploy.ts --network botchain",
-    "configure-tee:botchain": "hardhat run scripts/configure-tee.ts --network botchain",
-    "smoke:botchain": "hardhat run scripts/smoke-coston2.ts --network botchain",
-    "seed-demo:botchain": "hardhat run scripts/seed-demo-invoice.ts --network botchain",
     "deploy:testnet": "hardhat run scripts/deploy.ts --network botchainTestnet",
-    "smoke:testnet": "hardhat run scripts/smoke-coston2.ts --network botchainTestnet"
+    "configure-attestor:botchain": "hardhat run scripts/configure-attestor.ts --network botchain",
+    "configure-attestor:testnet": "hardhat run scripts/configure-attestor.ts --network botchainTestnet",
+    "smoke:botchain": "hardhat run scripts/smoke-botchain.ts --network botchain",
+    "smoke:testnet": "hardhat run scripts/smoke-botchain.ts --network botchainTestnet",
+    "seed-demo:botchain": "hardhat run scripts/seed-demo-invoice.ts --network botchain"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
@@ -37,7 +36,6 @@
     "typescript": "^5.7.2"
   },
   "dependencies": {
-    "@flarenetwork/flare-periphery-contracts": "^0.1.28",
     "@openzeppelin/contracts": "^5.1.0"
   }
 }

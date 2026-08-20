@@ -1,9 +1,8 @@
 import { writeFileSync } from "fs";
 import { join } from "path";
 import { ethers } from "hardhat";
-import { addressUrl, resolveFlareAddresses, txUrl } from "./flare";
+import { addressUrl, networkInfo, resolveSettlementToken, txUrl } from "./botchain";
 
-const DEFAULT_MAX_PRICE_AGE_SECONDS = 600n;
 const DEFAULT_REFUND_GRACE_PERIOD_SECONDS = 604_800n;
 const CONFIRMATIONS = 2;
 
@@ -17,7 +16,8 @@ function envBigint(name: string, fallback: bigint): bigint {
 }
 
 async function main() {
-  const flare = await resolveFlareAddresses();
+  const net = await networkInfo();
+  const token = await resolveSettlementToken(net);
 
   const signers = await ethers.getSigners();
   if (signers.length === 0) {
@@ -32,64 +32,57 @@ async function main() {
     throw new Error(`OWNER_ADDRESS is not a valid address: "${owner}"`);
   }
 
-  const maxPriceAge = envBigint("MAX_PRICE_AGE_SECONDS", DEFAULT_MAX_PRICE_AGE_SECONDS);
   const refundGracePeriod = envBigint(
     "REFUND_GRACE_PERIOD_SECONDS",
     DEFAULT_REFUND_GRACE_PERIOD_SECONDS,
   );
 
   const balance = await ethers.provider.getBalance(deployer.address);
+  console.log("Network             :", net.name, `(chain ${net.chainId})`);
   console.log("Deployer            :", deployer.address);
-  console.log("Deployer balance    :", ethers.formatEther(balance), "C2FLR");
+  console.log("Deployer balance    :", ethers.formatEther(balance), net.isMainnet ? "BOT" : "tBOT");
   if (balance === 0n) {
     throw new Error(
-      "Deployer has no C2FLR. Fund it at https://faucet.flare.network before deploying.",
+      net.isMainnet
+        ? "Deployer has no BOT. There is no mainnet faucet — acquire BOT before deploying."
+        : "Deployer has no tBOT. Fund it at https://faucet.botchain.ai before deploying.",
     );
   }
 
   console.log("Owner               :", owner);
-  console.log("FXRP                :", flare.fxrp, `(${flare.fxrpSymbol}, ${flare.fxrpDecimals}d)`);
-  console.log("FtsoV2              :", flare.ftsoV2);
-  console.log("Max price age (s)   :", maxPriceAge.toString());
+  console.log(
+    "Settlement token    :",
+    token.address,
+    `(${token.symbol}, ${token.decimals}d, "${token.name}")`,
+  );
   console.log("Refund grace (s)    :", refundGracePeriod.toString());
 
-  const factory = await ethers.getContractFactory("FlareSealEscrow", deployer);
-  const escrow = await factory.deploy(
-    owner,
-    flare.fxrp,
-    flare.ftsoV2,
-    maxPriceAge,
-    refundGracePeriod,
-  );
+  const factory = await ethers.getContractFactory("BotSealEscrow", deployer);
+  const escrow = await factory.deploy(owner, token.address, refundGracePeriod);
 
   const deploymentTx = escrow.deploymentTransaction();
   if (!deploymentTx) throw new Error("Deployment transaction is missing.");
-  console.log("\nDeployment tx       :", deploymentTx.hash, txUrl(deploymentTx.hash));
+  console.log("\nDeployment tx       :", deploymentTx.hash, txUrl(deploymentTx.hash, net));
 
   await escrow.waitForDeployment();
   await deploymentTx.wait(CONFIRMATIONS);
 
   const escrowAddress = await escrow.getAddress();
-  console.log("Escrow deployed     :", escrowAddress, addressUrl(escrowAddress));
+  console.log("Escrow deployed     :", escrowAddress, addressUrl(escrowAddress, net));
 
   // Read the immutable configuration back from chain and assert it matches what we asked for.
-  const [onChainOwner, onChainFxrp, onChainFtso, onChainMaxAge, onChainGrace, onChainScale] =
-    await Promise.all([
-      escrow.owner(),
-      escrow.FXRP(),
-      escrow.FTSO_V2(),
-      escrow.maxPriceAge(),
-      escrow.refundGracePeriod(),
-      escrow.fxrpScale(),
-    ]);
+  const [onChainOwner, onChainToken, onChainGrace, onChainScale] = await Promise.all([
+    escrow.owner(),
+    escrow.SETTLEMENT_TOKEN(),
+    escrow.refundGracePeriod(),
+    escrow.tokenScale(),
+  ]);
 
   const mismatches: string[] = [];
   if (onChainOwner.toLowerCase() !== owner.toLowerCase()) mismatches.push("owner");
-  if (onChainFxrp.toLowerCase() !== flare.fxrp.toLowerCase()) mismatches.push("FXRP");
-  if (onChainFtso.toLowerCase() !== flare.ftsoV2.toLowerCase()) mismatches.push("FtsoV2");
-  if (onChainMaxAge !== maxPriceAge) mismatches.push("maxPriceAge");
+  if (onChainToken.toLowerCase() !== token.address.toLowerCase()) mismatches.push("SETTLEMENT_TOKEN");
   if (onChainGrace !== refundGracePeriod) mismatches.push("refundGracePeriod");
-  if (onChainScale !== 10n ** BigInt(flare.fxrpDecimals)) mismatches.push("fxrpScale");
+  if (onChainScale !== 10n ** BigInt(token.decimals)) mismatches.push("tokenScale");
 
   if (mismatches.length > 0) {
     throw new Error(`Post-deployment verification failed for: ${mismatches.join(", ")}`);
@@ -97,26 +90,28 @@ async function main() {
   console.log("Post-deploy verification: all immutables match");
 
   const record = {
-    network: "coston2",
-    chainId: 114,
+    network: net.isMainnet ? "botchain" : "botchainTestnet",
+    chainId: Number(net.chainId),
     escrowAddress,
-    fxrpAddress: flare.fxrp,
-    ftsoV2Address: flare.ftsoV2,
-    assetManagerFXRP: flare.assetManagerFXRP,
+    settlementToken: {
+      address: token.address,
+      symbol: token.symbol,
+      decimals: token.decimals,
+    },
     deploymentTx: deploymentTx.hash,
     deployer: deployer.address,
     owner,
-    maxPriceAgeSeconds: Number(maxPriceAge),
     refundGracePeriodSeconds: Number(refundGracePeriod),
     deployedAt: new Date().toISOString(),
   };
 
-  const outPath = join(__dirname, "..", "deployments", "coston2.json");
+  const fileName = `botchain-${net.chainId}.json`;
+  const outPath = join(__dirname, "..", "deployments", fileName);
   writeFileSync(outPath, `${JSON.stringify(record, null, 2)}\n`, "utf8");
   console.log(`\nWrote ${outPath}`);
   console.log(
-    "\nNext: start the FCC stack, then run `npm run configure-tee:coston2` with " +
-      "TEE_SIGNING_ADDRESS set to the address from the FCC proxy /info endpoint.",
+    "\nNext: deploy the attestor, then run `npm run configure-attestor:botchain` with " +
+      "ATTESTOR_SIGNING_ADDRESS set to the address from the attestor's /info endpoint.",
   );
 }
 
