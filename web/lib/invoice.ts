@@ -5,13 +5,13 @@
  * no floating-point arithmetic anywhere in this file: `parseUsdToCents` walks the decimal string
  * itself rather than going through `Number`, because `Number("0.07") * 100` is `7.000000000000001`.
  *
- * The browser mirrors the TEE's validation for UX only. The TEE is authoritative — it recomputes
+ * The browser mirrors the attestor's validation for UX only. The attestor is authoritative — it recomputes
  * every total from the decrypted payload and its result is what the escrow trusts.
  */
 
 import type { Hex } from "viem";
 
-// --- Limits (mirrored from fcc/typescript/src/app/config.ts) -----------------
+// --- Limits (shared with lib/attestor/validate.ts) ---------------------------
 
 export const MAX_ITEMS = 20;
 export const MIN_ITEMS = 1;
@@ -26,7 +26,7 @@ export const MAX_TOTAL_CENTS = 10_000_000_000n;
 // --- Types -------------------------------------------------------------------
 
 /**
- * The plaintext invoice, exactly as the TEE expects it. Numeric fields are decimal strings so JSON
+ * The plaintext invoice, exactly as the attestor expects it. Numeric fields are decimal strings so JSON
  * transport cannot round them.
  *
  * This object is sensitive in full. It is encrypted in the browser and never logged, persisted,
@@ -138,7 +138,7 @@ export function parseQuantity(input: string): bigint {
 /**
  * Computes line totals, subtotal, and the final total in integer cents.
  *
- * Mirrors the TEE exactly:
+ * Mirrors the attestor exactly:
  *   lineTotal  = quantity * unitPriceCents
  *   subtotal   = sum(lineTotal)
  *   finalTotal = subtotal - discount + tax
@@ -205,7 +205,7 @@ export interface BuildPayloadInput {
 }
 
 /**
- * Builds the exact JSON object the TEE validates.
+ * Builds the exact JSON object the attestor validates.
  *
  * The returned value carries the full plaintext invoice plus fresh entropy. Callers encrypt it
  * immediately and drop the reference.

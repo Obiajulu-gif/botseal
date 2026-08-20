@@ -1,9 +1,9 @@
 /**
  * Zod schema for the new-invoice form.
  *
- * Mirrors the TEE's validation rules so the user gets immediate feedback, but the TEE remains
+ * Mirrors the attestor's validation rules so the user gets immediate feedback, but the attestor remains
  * authoritative: it revalidates everything on the decrypted payload and the escrow only ever trusts
- * the TEE's signed result.
+ * the attestor's signed result.
  */
 
 import { isAddress } from "viem";
@@ -121,7 +121,7 @@ export type InvoiceFormValues = z.infer<typeof invoiceFormSchema>;
  * Converts an `<input type="date">` value to a unix timestamp.
  *
  * The date is interpreted as end-of-day UTC so an invoice due "today" in the user's timezone does
- * not arrive at the TEE already expired.
+ * not arrive at the attestor already expired.
  */
 export function dueDateToUnix(value: string): number | undefined {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
@@ -135,7 +135,7 @@ export function minimumDueDate(): string {
   return tomorrow.toISOString().slice(0, 10);
 }
 
-/** The latest date the picker should allow, matching the TEE's 366-day horizon. */
+/** The latest date the picker should allow, matching the attestor's 366-day horizon. */
 export function maximumDueDate(): string {
   const horizon = new Date(Date.now() + MAX_DUE_DATE_HORIZON_SECONDS * 1000);
   return horizon.toISOString().slice(0, 10);

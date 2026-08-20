@@ -60,7 +60,7 @@ async function main() {
   // 32 bytes of entropy keeps the commitment hiding even though the terms are simple.
   const salt = ethers.hexlify(ethers.randomBytes(32));
   const termsCommitment = keccak256(
-    toUtf8Bytes(`FLARESEAL_PUBLIC_DEMO_V1:${reference}:${usdAmountCents}:${dueAt}:${salt}`),
+    toUtf8Bytes(`BOTSEAL_PUBLIC_DEMO_V1:${reference}:${usdAmountCents}:${dueAt}:${salt}`),
   );
 
   const escrow = await ethers.getContractAt("BotSealEscrow", escrowAddress, signer);

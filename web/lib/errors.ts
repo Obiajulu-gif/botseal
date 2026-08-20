@@ -2,10 +2,10 @@
  * Translates contract custom errors and wallet failures into messages a user can act on.
  *
  * Nothing here echoes invoice content: the escrow's errors are all about addresses, status, and
- * price, and the FCC extension's rejection strings name a field and a rule, never a value.
+ * amount, and the attestor's rejection strings name a field and a rule, never a value.
  */
 
-/** Custom error name -> user-facing explanation. Keys match `FlareSealEscrow`'s error selectors. */
+/** Custom error name -> user-facing explanation. Keys match `BotSealEscrow`'s error selectors. */
 const ESCROW_ERRORS: Record<string, string> = {
   ZeroAddress: "That address cannot be zero.",
   NotAContract: "That address does not contain a contract.",
@@ -18,19 +18,18 @@ const ESCROW_ERRORS: Record<string, string> = {
   NotBuyer: "Only the buyer can do that.",
   InvoiceExpired: "This invoice is past its due date and can no longer be funded.",
   RefundNotAvailable: "The refund grace period has not elapsed yet.",
-  StalePrice: "The XRP/USD price feed is too old to settle against. Try again shortly.",
-  InvalidPrice: "The XRP/USD price feed returned an unusable value.",
   SlippageExceeded:
     "The price moved beyond your slippage tolerance. Refresh the quote and try again.",
-  TeeNotConfigured: "The escrow has no TEE signing address configured yet.",
-  TeeReportedFailure: "The confidential extension did not approve this invoice.",
-  InvalidTeeSignature: "The TEE signature on this result is not valid for this escrow.",
-  FccActionAlreadyConsumed: "This confidential result has already been used to create an invoice.",
+  AttestorNotConfigured: "The escrow has no attestor signing address configured yet.",
+  InvalidAttestorSignature:
+    "The attestor signature on this result is not valid for this escrow and chain.",
+  AttestationAlreadyConsumed:
+    "This confidential result has already been used to create an invoice.",
   ResultForWrongContract: "This result was produced for a different escrow contract.",
   InvalidResultSeller: "Only the seller named in the confidential result can relay it.",
-  InvalidActionId: "The FCC action id is missing.",
+  InvalidAttestationId: "The attestation id is missing.",
   SameSellerAndBuyer: "The buyer must be different from the seller.",
-  CannotRecoverEscrowToken: "Escrowed FXRP cannot be moved by the owner.",
+  CannotRecoverEscrowToken: "Escrowed funds cannot be moved by the owner.",
   UnsupportedTokenDecimals: "The token reports an unsupported number of decimals.",
   InvalidMaxPriceAge: "The configured maximum price age is out of range.",
   EmptyEncryptedPayload: "The encrypted payload was empty.",
@@ -40,27 +39,30 @@ const ESCROW_ERRORS: Record<string, string> = {
 
 /** ERC-20 failures surface as plain reverts; these substrings are the common ones. */
 const TOKEN_HINTS: Array<[RegExp, string]> = [
-  [/insufficient allowance|ERC20InsufficientAllowance/i, "Approve FXRP for the escrow first."],
-  [/insufficient balance|ERC20InsufficientBalance/i, "Your FXRP balance is too low."],
-  [/transfer amount exceeds balance/i, "Your FXRP balance is too low."],
+  [
+    /insufficient allowance|ERC20InsufficientAllowance/i,
+    "Approve the settlement token for the escrow first.",
+  ],
+  [/insufficient balance|ERC20InsufficientBalance/i, "Your token balance is too low."],
+  [/transfer amount exceeds balance/i, "Your token balance is too low."],
 ];
 
 const WALLET_HINTS: Array<[RegExp, string]> = [
   [/user rejected|user denied|ACTION_REJECTED|4001/i, "You rejected the request in your wallet."],
   [
     /insufficient funds for gas|insufficient funds for intrinsic/i,
-    "Not enough C2FLR to pay for gas. Top up at the Coston2 faucet.",
+    "Not enough BOT to pay for gas.",
   ],
   [
     /chain mismatch|chain not configured|ChainMismatchError|does not match the target chain/i,
-    "Your wallet is on the wrong network. Switch it to Flare Testnet Coston2 (chain 114) and try again.",
+    "Your wallet is on the wrong network. Switch it to BOT Chain and try again.",
   ],
   // Seen when a wallet left on another network tries to send: that chain's RPC estimates gas
   // against an account with a zero balance there. The message names gas, but the cause is almost
   // always the network, so it is worth saying both.
   [
     /gas required exceeds allowance|exceeds allowance \(0\)|cannot estimate gas/i,
-    "The transaction could not be estimated. Check your wallet is on Coston2 (chain 114) and holds C2FLR for gas.",
+    "The transaction could not be estimated. Check your wallet is on BOT Chain and holds BOT for gas.",
   ],
   [/nonce too low|replacement transaction underpriced/i, "A pending transaction is in the way."],
   [/timeout|timed out/i, "The network did not respond in time. Try again."],

@@ -44,35 +44,27 @@ export function useBuyerInvoiceIds(address?: Hex) {
 }
 
 /**
- * Reads the escrow's configured TEE signing address.
+ * Reads the escrow's configured attestor signing address.
  *
- * Having an InstructionSender address is not enough to offer the confidential flow: until the owner
- * has called `setTeeAddress`, `relayConfidentialInvoice` reverts with `TeeNotConfigured`. Without
- * this check the UI would happily take a user through encryption and a paid instruction transaction
- * toward a relay that cannot succeed.
+ * Until the owner has called `setAttestorAddress`, `relayConfidentialInvoice` reverts with
+ * `AttestorNotConfigured`. Without this check the UI would take a seller all the way through
+ * encryption and attestation toward a relay that cannot succeed.
  */
-export function useTeeAddress() {
+export function useAttestorAddress() {
   return useReadContract({
     abi: escrowAbi,
     address: env.escrowAddress as Hex | undefined,
-    functionName: "teeAddress",
+    functionName: "attestorAddress",
     query: { enabled: Boolean(env.escrowAddress), staleTime: 30_000 },
   });
 }
 
-/**
- * True only when the confidential path can actually complete end to end: an InstructionSender to
- * submit through, and a TEE signer the escrow will accept a result from.
- */
+/** True only when the escrow will accept an attestor-signed result. */
 export function useConfidentialAvailable(): { available: boolean; isLoading: boolean } {
-  const { data, isLoading } = useTeeAddress();
-  const teeConfigured =
-    typeof data === "string" && data.toLowerCase() !== ZERO_ADDRESS;
+  const { data, isLoading } = useAttestorAddress();
+  const attestorConfigured = typeof data === "string" && data.toLowerCase() !== ZERO_ADDRESS;
 
-  return {
-    available: Boolean(env.instructionSenderAddress) && teeConfigured,
-    isLoading,
-  };
+  return { available: attestorConfigured, isLoading };
 }
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -171,7 +163,7 @@ export function useEscrowWrite() {
     },
     onSuccess: (receipt, variables) => {
       toast.success(variables.successMessage, {
-        description: "View on Coston2 explorer",
+        description: `View on ${botchain.name} explorer`,
         action: {
           label: "Open",
           onClick: () => window.open(txUrl(receipt.transactionHash), "_blank", "noopener"),
@@ -202,7 +194,7 @@ export function useSettlementActions(invoiceId?: bigint) {
 
   return {
     ...write,
-    fund: (maxFxrpAmount: bigint) => run("fundInvoice", "Invoice funded.", [maxFxrpAmount]),
+    fund: () => run("fundInvoice", "Invoice funded."),
     release: () => run("releasePayment", "Payment released to the seller."),
     refund: () => run("refundBuyer", "Escrow refunded to the buyer."),
     claimExpired: () => run("claimExpiredRefund", "Expired escrow reclaimed."),

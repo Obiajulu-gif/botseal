@@ -3,9 +3,8 @@ import { ethers } from "hardhat";
 /**
  * BOT Chain network constants and settlement-token resolution.
  *
- * This replaces the Flare Contract Registry lookup the project used to do. BOT Chain has no
- * contract registry and no oracle, so there is nothing to resolve dynamically: the settlement
- * token is a known address that we verify, rather than discover.
+ * There is no contract registry and no oracle on BOT Chain, so nothing here is resolved
+ * dynamically: the settlement token is a known address that we verify, rather than discover.
  */
 
 export const BOTCHAIN_MAINNET_CHAIN_ID = 677n;

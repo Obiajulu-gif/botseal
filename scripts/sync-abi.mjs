@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 /**
- * Copies the ABIs the frontend consumes out of the two Hardhat artifact trees.
+ * Copies the ABI the frontend consumes out of the Hardhat artifact tree.
  *
- *   contracts/artifacts/      -> FlareSealEscrow            (npm run compile)
- *   fcc/artifacts-hardhat/    -> FlareSealInstructionSender (npm run compile:fcc)
+ *   contracts/artifacts/ -> BotSealEscrow   (npm run compile)
  *
  * Only the `abi` array is written. Bytecode and build metadata stay in the artifact trees so the
  * frontend bundle never carries deployment material.
@@ -20,22 +19,10 @@ const outDir = join(root, "web", "lib", "abi");
 
 const SOURCES = [
   {
-    name: "FlareSealEscrow",
-    artifact: join(
-      root,
-      "contracts/artifacts/contracts/FlareSealEscrow.sol/FlareSealEscrow.json",
-    ),
-    out: "FlareSealEscrow.json",
+    name: "BotSealEscrow",
+    artifact: join(root, "contracts/artifacts/contracts/BotSealEscrow.sol/BotSealEscrow.json"),
+    out: "BotSealEscrow.json",
     build: "cd contracts && npm run compile",
-  },
-  {
-    name: "FlareSealInstructionSender",
-    artifact: join(
-      root,
-      "fcc/artifacts-hardhat/fcc/contracts/InstructionSender.sol/FlareSealInstructionSender.json",
-    ),
-    out: "InstructionSender.json",
-    build: "cd contracts && npm run compile:fcc",
   },
 ];
 

@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { InvoiceStatus, invoiceStatusLabel } from "@/lib/contracts";
 import { explainError } from "@/lib/errors";
 import { addressUrl, shortenHex, txUrl } from "@/lib/explorer";
-import { formatTokenAmount } from "@/hooks/use-fxrp";
+import { formatTokenAmount } from "@/hooks/use-settlement-token";
 import { dueDateToUnix, invoiceFormSchema } from "@/lib/validation";
 
 const ADDRESS = "0x1234567890123456789012345678901234567890";
@@ -57,7 +57,7 @@ describe("shortenHex", () => {
 });
 
 describe("formatTokenAmount", () => {
-  it("formats 6-decimal FXRP", () => {
+  it("formats a 6-decimal settlement token", () => {
     expect(formatTokenAmount(200_000_000n, 6)).toBe("200");
     expect(formatTokenAmount(1_500_000n, 6)).toBe("1.5");
   });
@@ -116,7 +116,7 @@ describe("invoiceFormSchema", () => {
     expect(result.error.issues.some((i) => /future/.test(i.message))).toBe(true);
   });
 
-  it("rejects a due date beyond the TEE's 366-day horizon", () => {
+  it("rejects a due date beyond the attestor's 366-day horizon", () => {
     const tooFar = new Date(Date.now() + 400 * 24 * 3600 * 1000).toISOString().slice(0, 10);
     const result = invoiceFormSchema.safeParse({ ...validForm, dueDate: tooFar });
     expect(result.success).toBe(false);
@@ -155,9 +155,8 @@ describe("explainError", () => {
       /price moved/i,
     );
     expect(explainError(new Error("execution reverted: NotBuyer()"))).toMatch(/only the buyer/i);
-    expect(explainError(new Error("StalePrice()"))).toMatch(/too old/i);
-    expect(explainError(new Error("FccActionAlreadyConsumed()"))).toMatch(/already been used/i);
-    expect(explainError(new Error("InvalidTeeSignature()"))).toMatch(/signature/i);
+    expect(explainError(new Error("AttestationAlreadyConsumed()"))).toMatch(/already been used/i);
+    expect(explainError(new Error("InvalidAttestorSignature()"))).toMatch(/signature/i);
   });
 
   it("recognises a user rejection", () => {
@@ -165,9 +164,7 @@ describe("explainError", () => {
   });
 
   it("recognises insufficient gas funds", () => {
-    expect(explainError(new Error("insufficient funds for gas * price + value"))).toMatch(
-      /C2FLR/,
-    );
+    expect(explainError(new Error("insufficient funds for gas * price + value"))).toMatch(/BOT/);
   });
 
   it("explains the wrong-network gas estimation failure in terms of the network", () => {
@@ -176,8 +173,7 @@ describe("explainError", () => {
       'The contract function "createPublicInvoice" reverted with the following reason: ' +
       "RPC 0x1 Infura eth_sendRawTransaction: gas required exceeds allowance (0)";
     const explained = explainError(new Error(raw));
-    expect(explained).toMatch(/Coston2/);
-    expect(explained).toMatch(/114/);
+    expect(explained).toMatch(/BOT Chain/);
   });
 
   it("tells the user to switch networks on a chain mismatch", () => {

@@ -7,7 +7,7 @@
  *
  * Usage:
  *   node scripts/check-env.mjs            # check everything
- *   node scripts/check-env.mjs contracts  # or: web, fcc
+ *   node scripts/check-env.mjs contracts  # or: web
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -31,27 +31,25 @@ const GROUPS = [
     name: "contracts",
     file: join(root, "contracts/.env"),
     example: join(root, "contracts/.env.example"),
-    required: ["COSTON2_RPC_URL", "DEPLOYER_PRIVATE_KEY"],
-    optional: ["OWNER_ADDRESS", "MAX_PRICE_AGE_SECONDS", "REFUND_GRACE_PERIOD_SECONDS"],
+    required: ["BOTCHAIN_RPC_URL", "DEPLOYER_PRIVATE_KEY"],
+    optional: ["OWNER_ADDRESS", "REFUND_GRACE_PERIOD_SECONDS", "SETTLEMENT_TOKEN_ADDRESS"],
   },
   {
     name: "web",
     file: join(root, "web/.env.local"),
     example: join(root, "web/.env.example"),
-    required: ["NEXT_PUBLIC_ESCROW_ADDRESS"],
-    optional: [
-      "NEXT_PUBLIC_INSTRUCTION_SENDER_ADDRESS",
-      "NEXT_PUBLIC_FXRP_ADDRESS",
-      "FCC_PROXY_URL",
-      "NEXT_PUBLIC_ENABLE_PUBLIC_MODE",
+    required: [
+      "NEXT_PUBLIC_CHAIN_ID",
+      "NEXT_PUBLIC_ESCROW_ADDRESS",
+      "NEXT_PUBLIC_SETTLEMENT_TOKEN_ADDRESS",
     ],
-  },
-  {
-    name: "fcc",
-    file: join(root, "fcc/.env"),
-    example: join(root, "fcc/.env.example"),
-    required: ["DEPLOYMENT_PRIVATE_KEY", "CHAIN_URL", "ESCROW_CONTRACT_ADDRESS"],
-    optional: ["INITIAL_OWNER", "PROXY_PRIVATE_KEY", "EXT_PROXY_URL", "NORMAL_PROXY_URL"],
+    optional: [
+      "NEXT_PUBLIC_RPC_URL",
+      "NEXT_PUBLIC_EXPLORER_URL",
+      "NEXT_PUBLIC_ENABLE_PUBLIC_MODE",
+      "ATTESTOR_PRIVATE_KEY",
+      "ATTESTOR_ESCROW_ADDRESS",
+    ],
   },
 ];
 

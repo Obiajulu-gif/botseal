@@ -1,30 +1,24 @@
 .PHONY: help install check-env contracts-compile contracts-test contracts-coverage \
-        contracts-resolve contracts-deploy contracts-configure-tee contracts-smoke \
-        sync-abi smoke fcc-start fcc-stop fcc-test fcc-unit web-dev web-build web-test \
-        web-lint web-typecheck verify clean
+        contracts-deploy contracts-deploy-testnet contracts-configure-attestor contracts-smoke \
+        sync-abi web-dev web-build web-test web-lint web-typecheck verify clean
 
 help:
-	@echo "FlareSeal"
+	@echo "BotSeal"
 	@echo ""
-	@echo "  make install                 Install contract and web dependencies"
-	@echo "  make check-env               Report which environment variables are set"
-	@echo "  make smoke                   Dependency-free Coston2 connectivity check"
+	@echo "  make install                      Install contract and web dependencies"
+	@echo "  make check-env                    Report which environment variables are set"
 	@echo ""
-	@echo "  make contracts-test          Run the Hardhat test suite"
-	@echo "  make contracts-coverage      Solidity coverage report"
-	@echo "  make contracts-resolve       Resolve FXRP and FTSOv2 from the registry"
-	@echo "  make contracts-deploy        Deploy FlareSealEscrow to Coston2"
-	@echo "  make contracts-configure-tee Set the TEE signing address on the escrow"
-	@echo "  make contracts-smoke         On-chain checks against the deployed escrow"
+	@echo "  make contracts-test               Run the Hardhat test suite"
+	@echo "  make contracts-coverage           Solidity coverage report"
+	@echo "  make contracts-deploy-testnet     Deploy BotSealEscrow to BOT Chain testnet (968)"
+	@echo "  make contracts-deploy             Deploy BotSealEscrow to BOT Chain mainnet (677)"
+	@echo "  make contracts-configure-attestor Set the attestor signing address on the escrow"
+	@echo "  make contracts-smoke              Read-only checks against the deployed escrow"
 	@echo ""
-	@echo "  make sync-abi                Copy compiled ABIs into web/lib/abi"
+	@echo "  make sync-abi                     Copy the compiled ABI into web/lib/abi"
 	@echo ""
-	@echo "  make fcc-start / fcc-stop    Start or stop the FCC Docker stack"
-	@echo "  make fcc-unit                FCC extension unit tests (no Docker)"
-	@echo "  make fcc-test                FCC end-to-end test (needs the stack + chain)"
-	@echo ""
-	@echo "  make web-dev / web-build     Run or build the frontend"
-	@echo "  make verify                  Every offline gate: tests, lint, types, build"
+	@echo "  make web-dev / web-build          Run or build the frontend"
+	@echo "  make verify                       Every offline gate: tests, lint, types, build"
 
 install:
 	cd contracts && npm install
@@ -32,9 +26,6 @@ install:
 
 check-env:
 	node scripts/check-env.mjs
-
-smoke:
-	node scripts/smoke-coston2.mjs
 
 # --- Contracts --------------------------------------------------------------
 
@@ -47,38 +38,24 @@ contracts-test:
 contracts-coverage:
 	cd contracts && npm run coverage
 
-contracts-resolve:
-	cd contracts && npm run resolve:coston2
+contracts-deploy-testnet:
+	cd contracts && npm run deploy:testnet
 
 contracts-deploy:
-	cd contracts && npm run deploy:coston2
+	cd contracts && npm run deploy:botchain
 
-contracts-configure-tee:
-	cd contracts && npm run configure-tee:coston2
+contracts-configure-attestor:
+	cd contracts && npm run configure-attestor:botchain
 
 contracts-smoke:
-	cd contracts && npm run smoke:coston2
+	cd contracts && npm run smoke:botchain
 
 # --- ABI ---------------------------------------------------------------------
 
-# Compiles both contracts first so the ABIs cannot go stale.
+# Compiles first so the ABI cannot go stale.
 sync-abi:
-	cd contracts && npm run compile && npm run compile:fcc
+	cd contracts && npm run compile
 	node scripts/sync-abi.mjs
-
-# --- FCC ---------------------------------------------------------------------
-
-fcc-start:
-	cd fcc && ./scripts/start-services.sh
-
-fcc-stop:
-	cd fcc && ./scripts/stop-services.sh
-
-fcc-unit:
-	cd fcc && ./scripts/test-unit.sh typescript
-
-fcc-test:
-	cd fcc && ./scripts/test.sh
 
 # --- Web ---------------------------------------------------------------------
 
@@ -99,10 +76,9 @@ web-typecheck:
 
 # --- Gates -------------------------------------------------------------------
 
-# Everything that runs without a chain, a wallet, or Docker.
+# Everything that runs without a chain, a wallet, or a funded key.
 verify:
 	cd contracts && npm test
-	cd fcc/typescript && npx vitest run
 	cd web && npm run lint
 	cd web && npm run typecheck
 	cd web && npm test

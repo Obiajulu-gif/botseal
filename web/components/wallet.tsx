@@ -138,15 +138,15 @@ export function SiteHeader() {
         <div className="flex items-center gap-7">
           <Link
             href="/"
-            aria-label="FlareSeal home"
+            aria-label="BotSeal home"
             className="relative h-9 w-[8.75rem] shrink-0 overflow-hidden rounded-lg border border-white/10 bg-[#fafaf8] shadow-[0_10px_35px_hsl(var(--primary)/0.12)] transition-transform hover:scale-[1.02]"
           >
             <Image
-              src="/brand/flareseal-logo.png"
-              alt="FlareSeal"
+              src="/logo.svg"
+              alt="BotSeal"
               fill
               sizes="140px"
-              className="object-cover object-center"
+              className="object-contain object-center p-1.5"
               priority
             />
           </Link>
