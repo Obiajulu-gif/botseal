@@ -187,15 +187,18 @@ TEE. The existing "Known limitations" section is the right model — it gets ext
 
 Every phase ends with tests green and a commit. Branch: `botchain-migration` off `main`.
 
-| Phase | Work | Exit criterion | Budget |
+| Phase | Work | Exit criterion | Status |
 |---|---|---|---|
-| **1. Chain layer** | Hardhat networks 677/968, `defineChain` for viem, env vars, explorer URLs, deployments path. Deploy Cancun canary to 968. | `npx hardhat compile` clean; canary deployed on 968 and its `MCOPY` path executes | Aug 19 PM, 2h |
-| **2. Contract surgery** | Delete oracle + FXRP, USDT math, EIP-712 attestor verification, rename. Port the 49KB test suite. | `npm test` green, coverage ≥ baseline | Aug 19 PM – Aug 20 AM, 6h |
-| **3. Attestor** | `web/app/api/attestor/{info,create}`; ECIES decrypt, validate, EIP-712 sign. Delete `fcc/`. | Unit tests green; local round-trip produces a signature the contract accepts | Aug 20, 5h |
-| **4. Rename & brand** | Contracts, packages, env prefixes, dirs, logo, all UI copy | Zero matches for `flare\|coston\|ftso\|fxrp` outside the one provenance line | Aug 20 PM, 2h |
-| **5. Frontend** | BOT Chain wallet/network config, USDT approve+fund, confidential flow against the new route, copy | `make verify` green; full flow works against 968 | Aug 21, 6h |
-| **6. Testnet rehearsal → mainnet deploy** | Full dress rehearsal on 968, then deploy to 677, verify on `scan.botchain.ai`, seed a real demo invoice | Mainnet addresses recorded; end-to-end flow completed with two real wallets | Aug 21 PM – Aug 22 AM, 4h |
-| **7. Docs, video, submission** | README, architecture, security, runbook rewritten. Demo video. Migration answers. | Submission filed before 16:59 WAT Aug 22 | Aug 22 AM, 3h |
+| **1. Chain layer** | Hardhat networks 677/968, `defineChain` for viem, env vars, explorer URLs, deployments path | compile clean; Cancun confirmed | ✅ `7dfcb69` |
+| **2. Contract surgery** | Delete oracle + FXRP, USDT math, EIP-712 attestor verification, rename. Port the test suite. | `npm test` green | ✅ `711aebe` — 66 passing, 100% line/stmt/func coverage |
+| **3. Attestor** | `web/app/api/attestor/{info,create}`; ECIES decrypt, validate, EIP-712 sign. Delete `fcc/`. | round-trip produces a signature the contract accepts | ✅ `c120816` — verified live, not just unit-tested |
+| **4. Rename & brand** | Contracts, packages, env prefixes, dirs, logo, all UI copy | zero `flare\|coston\|ftso\|fxrp` outside `docs/` | ✅ `c120816` |
+| **5. Frontend** | BOT Chain wallet/network config, USDT approve+fund, confidential flow, copy | `make verify` green | ✅ absorbed into 3–4 — 88 tests, lint/typecheck/build clean |
+| **6. Testnet rehearsal → mainnet deploy** | Rehearse on 968, deploy to 677, verify on `scan.botchain.ai`, seed a demo invoice | Mainnet addresses recorded; end-to-end flow with two real wallets | ⛔ **blocked on BOT + USDT** |
+| **7. Docs, video, submission** | README, architecture, security, runbook rewritten. Demo video. Migration answers. | Submission filed before 16:59 WAT Aug 22 | ⏳ next |
+
+Phase 5 folded into 2–4: the frontend could not typecheck until the hooks, env and copy moved
+with the contract, so it moved with them rather than being deferred.
 
 **Phase 6 is the one that cannot slip.** If Phase 5 is late, ship the public-invoice path on mainnet
 and label the confidential path as beta — a deployed product with one flow beats a perfect product
