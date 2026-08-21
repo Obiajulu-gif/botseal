@@ -33,20 +33,28 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
-      chainId: 31337,
+      // Defaults to the testnet id rather than 31337. The frontend refuses any chain that is not
+      // 677 or 968, and the EIP-712 domain binds chainId — so a local node at 31337 cannot host a
+      // rehearsal of the confidential flow at all. Overridable for anything that needs otherwise.
+      chainId: Number(process.env.HARDHAT_CHAIN_ID ?? 968),
       allowUnlimitedContractSize: false,
     },
     // Deployment target. The Builder Challenge requires mainnet, so this is the network
     // that matters; `botchainTestnet` exists to rehearse against before spending real BOT.
+    // The public endpoints are slow — a cold `eth_chainId` was measured at ~12s — and hardhat's
+    // default HTTP timeout trips on that intermittently. 60s turns a spurious ConnectTimeoutError
+    // during a deploy into a completed transaction.
     botchain: {
       url: BOTCHAIN_RPC_URL,
       chainId: 677,
       accounts,
+      timeout: 60_000,
     },
     botchainTestnet: {
       url: BOTCHAIN_TESTNET_RPC_URL,
       chainId: 968,
       accounts,
+      timeout: 60_000,
     },
   },
   paths: {

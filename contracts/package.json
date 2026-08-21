@@ -15,7 +15,8 @@
     "configure-attestor:testnet": "hardhat run scripts/configure-attestor.ts --network botchainTestnet",
     "smoke:botchain": "hardhat run scripts/smoke-botchain.ts --network botchain",
     "smoke:testnet": "hardhat run scripts/smoke-botchain.ts --network botchainTestnet",
-    "seed-demo:botchain": "hardhat run scripts/seed-demo-invoice.ts --network botchain"
+    "seed-demo:botchain": "hardhat run scripts/seed-demo-invoice.ts --network botchain",
+    "rehearse": "hardhat run scripts/rehearse-local.ts"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",

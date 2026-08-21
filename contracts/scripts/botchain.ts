@@ -102,6 +102,18 @@ export async function resolveSettlementToken(net: NetworkInfo): Promise<Settleme
     );
   }
 
+  // The wrong-address mistake this exists to stop: on chain 968 the mainnet USDT address holds an
+  // unrelated 18-decimal token ("Weslie"/WES), which passes every generic sanity check below and
+  // would silently mis-scale every invoice by 10^12. Refuse it by address, on any network that is
+  // not mainnet, regardless of how it was supplied.
+  if (!net.isMainnet && address.toLowerCase() === BOTCHAIN_MAINNET_USDT.toLowerCase()) {
+    throw new Error(
+      `${address} is the MAINNET USDT address. On ${net.name} it holds an unrelated 18-decimal ` +
+        `token, and deploying against it would mis-scale every invoice by 10^12. Deploy a ` +
+        `6-decimal MockERC20 and point SETTLEMENT_TOKEN_ADDRESS at that instead.`,
+    );
+  }
+
   const code = await ethers.provider.getCode(address);
   if (code === "0x") {
     throw new Error(`No contract code at ${address} on ${net.name}.`);
@@ -116,13 +128,21 @@ export async function resolveSettlementToken(net: NetworkInfo): Promise<Settleme
 
   const decimalsNumber = Number(decimals);
 
-  if (net.isMainnet && !override) {
+  if (net.isMainnet) {
+    // Applies whether the address came from the default or from an override. Supplying an address
+    // explicitly is not a reason to trust it less carefully.
     if (symbol !== "USDT" || decimalsNumber !== 6) {
       throw new Error(
         `Settlement token at ${address} reports ${symbol}/${decimalsNumber}d, expected USDT/6d. ` +
-          `Refusing to deploy against an unexpected token.`,
+          `Refusing to deploy against an unexpected token on mainnet.`,
       );
     }
+  } else if (decimalsNumber !== 6) {
+    // Not fatal on testnet - but a rehearsal at different decimals is not rehearsing mainnet.
+    console.warn(
+      `WARNING: settlement token reports ${decimalsNumber} decimals, mainnet USDT uses 6. ` +
+        `The amount math will differ from production.`,
+    );
   }
 
   if (decimalsNumber > 18) {

@@ -76,6 +76,29 @@ Set `SETTLEMENT_TOKEN_ADDRESS` to that address.
 
 ---
 
+## 2a. Rehearse the whole flow offline
+
+Before spending anything, prove the sequence works:
+
+```bash
+cd contracts && npm run rehearse
+```
+
+Deploys, relays an attestor-signed invoice, funds and releases it on hardhat's in-process network —
+no gas, no key, no testnet. Asserts the total is stored exactly, the relay calldata contains no
+plaintext, a replay is rejected, and the seller is paid to the wei.
+
+With the frontend running it drives the **real** attestor service over HTTP rather than signing
+locally, which is the one seam neither test suite covers on its own:
+
+```bash
+ATTESTOR_BASE_URL=http://127.0.0.1:3000 npm run rehearse
+```
+
+The output says which mode it ran in.
+
+---
+
 ## 3. Deploy the escrow
 
 Testnet rehearsal:
