@@ -215,13 +215,29 @@ chain, wallet or key required.
 
 ## Deployed addresses
 
-Not yet deployed to mainnet. Addresses land in `contracts/deployments/botchain-677.json` and are
-recorded here the moment they exist.
+Live on **BOT Chain Testnet (chain 968)**. Full record in `contracts/deployments/botchain-968.json`.
 
 | Contract | Address |
 |---|---|
-| `BotSealEscrow` | _pending_ |
-| USDT (settlement) | [`0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C`](https://scan.botchain.ai/token/0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C) |
+| `BotSealEscrow` | [`0x926A0215BC58c4897c5604a7E5eeCf5D4d84cc1D`](https://scan.bohr.life/address/0x926A0215BC58c4897c5604a7E5eeCf5D4d84cc1D) |
+| USDT (test settlement token, 6d) | [`0x358A95Aa014D112CDFbEe5f3eA599BA14B331CBF`](https://scan.bohr.life/address/0x358A95Aa014D112CDFbEe5f3eA599BA14B331CBF) |
+| Attestor signer | [`0x1399edE7cE143bE5D463471Fa5D09CB8996eB818`](https://scan.bohr.life/address/0x1399edE7cE143bE5D463471Fa5D09CB8996eB818) |
+
+A full confidential invoice was created, funded and settled on chain against this deployment:
+
+| Step | Transaction |
+|---|---|
+| Escrow deployment | [`0x3030e64f…331f16`](https://scan.bohr.life/tx/0x3030e64ff56bf820b2192a582dd1c74ead9e78f37b1e1a1dba4619b058331f16) |
+| Attestor configured | [`0x5b483407…e9e42b`](https://scan.bohr.life/tx/0x5b483407e08e65a8a68f9695e24a835aa8e6c16e94d27285c1dac2e7c2e9e42b) |
+| Confidential relay | [`0xaa609e39…a6cfaa`](https://scan.bohr.life/tx/0xaa609e39b4f4565aa2e0468535ce022f5d619af461c90632762ecf5a20a6cfaa) |
+| Funded ($2,510.22) | [`0x5fab4d98…ae0063`](https://scan.bohr.life/tx/0x5fab4d9826eb2a34f80db31cb63520fd8d79ba6a1aef1b63faf113296bae0063) |
+| Released to seller | [`0xedf7ecd2…e225e9`](https://scan.bohr.life/tx/0xedf7ecd22885b4e2d3641179ed4ad22c10d75d7985b981ab97acbda46de225e9) |
+
+The relay carried 356 bytes of calldata and no invoice plaintext. Reproduce with
+`npm run smoke-live:testnet`.
+
+Mainnet (chain 677) is configured but nothing is deployed there. It settles in real USDT
+[`0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C`](https://scan.botchain.ai/token/0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C).
 
 ---
 
