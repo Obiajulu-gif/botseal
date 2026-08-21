@@ -1,8 +1,8 @@
 # Line-ending policy.
 #
-# This repo is developed on Windows but its FCC tooling runs under bash — in WSL,
-# in Docker containers, and in CI. A CRLF shell script fails with the notoriously
-# opaque:
+# This repo is developed on Windows, but the Makefile and the shell scripts under
+# scripts/ are run by bash — locally, and in CI. A CRLF shell script fails with the
+# notoriously opaque:
 #
 #     /usr/bin/env: 'bash\r': No such file or directory
 #
@@ -12,25 +12,17 @@
 # Default: let git decide for text, but never touch anything it detects as binary.
 * text=auto
 
-# Must be LF — executed by bash or by a container entrypoint.
+# Must be LF — executed by bash, or read by a tool that does not tolerate CR.
 *.sh            text eol=lf
 *.bash          text eol=lf
 *.py            text eol=lf
-Dockerfile*     text eol=lf
-*.dockerfile    text eol=lf
-language.env    text eol=lf
 *.env.example   text eol=lf
 Makefile        text eol=lf
 
-# Sourced or parsed inside Linux containers.
+# Config formats that get parsed on Linux hosts.
 *.yaml          text eol=lf
 *.yml           text eol=lf
 *.toml          text eol=lf
-
-# Go tooling is LF by convention.
-*.go            text eol=lf
-go.mod          text eol=lf
-go.sum          text eol=lf
 
 # Binary — never convert.
 *.png           binary
