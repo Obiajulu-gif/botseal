@@ -5,7 +5,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
  * @title MockERC20
- * @notice Test-only ERC20 with a configurable decimal count, used to mirror FXRP's 6 decimals.
+ * @notice Test-only ERC20 with a configurable decimal count, used to mirror the settlement token's 6 decimals.
  */
 contract MockERC20 is ERC20 {
     uint8 private immutable _decimals;

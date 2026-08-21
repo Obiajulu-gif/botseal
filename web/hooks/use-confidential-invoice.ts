@@ -3,8 +3,13 @@
 /**
  * The confidential invoice creation state machine.
  *
- *   idle → loading-extension-info → encrypting → awaiting-wallet-signature
- *        → submitting-instruction → waiting-for-result → relaying-result → confirmed
+ *   idle → loading-attestor-info → encrypting → attesting
+ *        → awaiting-wallet-signature → relaying-result → confirmed
+ *
+ * This is two steps shorter than the build it replaces. That version paid for an on-chain
+ * instruction transaction, then polled a proxy until an enclave picked the instruction up and
+ * returned a result. The attestor is reachable directly, so the seller signs one transaction
+ * instead of two, and there is nothing to poll.
  *
  * Privacy rules enforced here:
  *   - The plaintext payload exists only as a local `const` inside {@link create}. It is never put in
@@ -18,34 +23,31 @@ import { decodeEventLog, type Hex, type TransactionReceipt } from "viem";
 import { useConfig } from "wagmi";
 import { waitForTransactionReceipt, writeContract } from "wagmi/actions";
 
-import { env, instructionFeeWei } from "@/lib/env";
-import { escrowAbi, instructionSenderAbi, instructionSenderAddress } from "@/lib/contracts";
+import { escrowAbi } from "@/lib/contracts";
 import { explainError } from "@/lib/errors";
-import { coston2 } from "@/lib/flare";
+import { botchain } from "@/lib/chain";
 import {
-  encryptToTee,
-  normaliseFccResponse,
-  type ExtensionInfo,
-  type FccResult,
-} from "@/lib/fcc";
+  deserialiseAttestation,
+  encryptToAttestor,
+  type AttestorCreateResponse,
+  type AttestorInfo,
+  type ConfidentialAttestation,
+} from "@/lib/attestor";
 import type { PrivateInvoicePayload } from "@/lib/invoice";
 
 export type ConfidentialPhase =
   | "idle"
-  | "loading-extension-info"
+  | "loading-attestor-info"
   | "encrypting"
+  | "attesting"
   | "awaiting-wallet-signature"
-  | "submitting-instruction"
-  | "waiting-for-result"
   | "relaying-result"
   | "confirmed";
 
 export type ConfidentialErrorKind =
-  | "extension-unavailable"
+  | "attestor-unavailable"
   | "wallet-rejected"
-  | "instruction-failed"
-  | "result-timeout"
-  | "tee-reported-error"
+  | "attestor-rejected"
   | "relay-reverted"
   | "wrong-network";
 
@@ -58,35 +60,31 @@ export interface ConfidentialState {
   phase: ConfidentialPhase;
   error?: ConfidentialError;
   /** Populated as the flow progresses, for the transaction receipts panel. */
-  instructionTxHash?: Hex;
-  actionId?: Hex;
+  attestationId?: Hex;
   relayTxHash?: Hex;
   invoiceId?: bigint;
-  /** Seconds spent waiting on the TEE, for the progress display. */
-  waitedSeconds: number;
 }
 
-const INITIAL: ConfidentialState = { phase: "idle", waitedSeconds: 0 };
+const INITIAL: ConfidentialState = { phase: "idle" };
 
 /** Human-readable label per phase, used by the progress UI. */
 export const PHASE_LABELS: Record<ConfidentialPhase, string> = {
   idle: "Ready",
-  "loading-extension-info": "Fetching the extension's public key…",
+  "loading-attestor-info": "Fetching the attestor's public key…",
   encrypting: "Encrypting the invoice in your browser…",
+  attesting: "The attestor is validating and signing…",
   "awaiting-wallet-signature": "Waiting for you to confirm in your wallet…",
-  "submitting-instruction": "Submitting the encrypted instruction on-chain…",
-  "waiting-for-result": "Waiting for the TEE to validate and sign…",
   "relaying-result": "Relaying the signed result into the escrow…",
   confirmed: "Confidential invoice created.",
 };
 
-async function fetchExtensionInfo(signal: AbortSignal): Promise<ExtensionInfo> {
-  const response = await fetch("/api/fcc/info", { signal, cache: "no-store" });
+async function fetchAttestorInfo(signal: AbortSignal): Promise<AttestorInfo> {
+  const response = await fetch("/api/attestor/info", { signal, cache: "no-store" });
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as { message?: string };
-    throw new Error(body.message ?? "The confidential extension is unavailable.");
+    throw new Error(body.message ?? "The attestor service is unavailable.");
   }
-  return (await response.json()) as ExtensionInfo;
+  return (await response.json()) as AttestorInfo;
 }
 
 export function useConfidentialInvoice() {
@@ -94,7 +92,7 @@ export function useConfidentialInvoice() {
   const [state, setState] = useState<ConfidentialState>(INITIAL);
   const abortRef = useRef<AbortController | undefined>(undefined);
 
-  // Stop polling if the component unmounts mid-flight.
+  // Stop any in-flight request if the component unmounts mid-flow.
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
@@ -103,51 +101,6 @@ export function useConfidentialInvoice() {
     abortRef.current?.abort();
     setState(INITIAL);
   }, []);
-
-  /**
-   * Polls `/api/fcc/result/<actionId>` until the TEE returns a terminal status or the configured
-   * timeout elapses. Stops immediately on success or a TEE-reported error.
-   */
-  const pollForResult = useCallback(
-    async (actionId: Hex, signal: AbortSignal): Promise<FccResult> => {
-      const deadline = Date.now() + env.fccResultTimeoutMs;
-      const startedAt = Date.now();
-
-      for (;;) {
-        if (signal.aborted) throw new DOMException("aborted", "AbortError");
-
-        const response = await fetch(`/api/fcc/result/${actionId}`, { signal, cache: "no-store" });
-
-        // 202 is this app's "not processed yet"; other non-OK codes are transient proxy problems.
-        if (response.ok) {
-          const state = normaliseFccResponse(await response.json());
-
-          if (state.kind === "success") return state.result;
-          if (state.kind === "error") {
-            const error: ConfidentialError = { kind: "tee-reported-error", message: state.message };
-            throw Object.assign(new Error(state.message), { confidential: error });
-          }
-        }
-
-        if (Date.now() >= deadline) {
-          const message = `The TEE did not return a result within ${Math.round(
-            env.fccResultTimeoutMs / 1000,
-          )}s.`;
-          throw Object.assign(new Error(message), {
-            confidential: { kind: "result-timeout", message } satisfies ConfidentialError,
-          });
-        }
-
-        setState((prev) => ({
-          ...prev,
-          waitedSeconds: Math.floor((Date.now() - startedAt) / 1000),
-        }));
-
-        await new Promise((resolve) => setTimeout(resolve, env.fccPollIntervalMs));
-      }
-    },
-    [],
-  );
 
   /**
    * Runs the full flow. `payload` is consumed immediately and never retained.
@@ -166,97 +119,95 @@ export function useConfidentialInvoice() {
       };
 
       try {
-        // --- 1. Extension public key -----------------------------------------
-        setState({ phase: "loading-extension-info", waitedSeconds: 0 });
-        let info: ExtensionInfo;
+        // --- 1. Attestor public key ------------------------------------------
+        setState({ phase: "loading-attestor-info" });
+        let info: AttestorInfo;
         try {
-          info = await fetchExtensionInfo(controller.signal);
+          info = await fetchAttestorInfo(controller.signal);
         } catch (error) {
+          if (error instanceof DOMException && error.name === "AbortError") return undefined;
           return fail(
-            "extension-unavailable",
-            error instanceof Error ? error.message : "The confidential extension is unavailable.",
+            "attestor-unavailable",
+            error instanceof Error ? error.message : "The attestor service is unavailable.",
           );
         }
 
-        // --- 2. Encrypt in the browser ---------------------------------------
+        if (info.chainId !== botchain.id) {
+          return fail(
+            "wrong-network",
+            `The attestor is configured for chain ${info.chainId}, but this app is on ` +
+              `chain ${botchain.id}. A signature minted for another chain cannot be relayed here.`,
+          );
+        }
+        if (info.escrowContract.toLowerCase() !== payload.escrowContract.toLowerCase()) {
+          return fail(
+            "attestor-unavailable",
+            "The attestor is bound to a different escrow than this app is configured with.",
+          );
+        }
+
+        // --- 2. Encrypt in the browser ----------------------------------------
         setState((prev) => ({ ...prev, phase: "encrypting" }));
         let ciphertext: Hex;
         try {
           // The only place the plaintext is serialised. Both the JSON string and `payload` go out
           // of scope when this function returns.
-          ciphertext = await encryptToTee(info.publicKey, JSON.stringify(payload));
+          ciphertext = await encryptToAttestor(info.publicKey, JSON.stringify(payload));
         } catch {
-          return fail("extension-unavailable", "Could not encrypt the invoice to the TEE key.");
-        }
-
-        // --- 3. Submit the instruction ---------------------------------------
-        setState((prev) => ({ ...prev, phase: "awaiting-wallet-signature" }));
-        let instructionReceipt: TransactionReceipt;
-        try {
-          const hash = await writeContract(config, {
-            // Pinned so an instruction can never be paid for on the wrong chain.
-            chainId: coston2.id,
-            abi: instructionSenderAbi,
-            address: instructionSenderAddress(),
-            functionName: "sendCreateInvoice",
-            args: [ciphertext],
-            value: instructionFeeWei(),
-          });
-
-          setState((prev) => ({ ...prev, phase: "submitting-instruction", instructionTxHash: hash }));
-          instructionReceipt = await waitForTransactionReceipt(config, { hash });
-        } catch (error) {
-          const message = explainError(error);
-          const rejected = /rejected/i.test(message);
-          return fail(rejected ? "wallet-rejected" : "instruction-failed", message);
-        }
-
-        if (instructionReceipt.status !== "success") {
-          return fail("instruction-failed", "The instruction transaction reverted on-chain.");
-        }
-
-        // --- 4. Extract the action id ----------------------------------------
-        const actionId = extractActionId(instructionReceipt);
-        if (!actionId) {
           return fail(
-            "instruction-failed",
-            "The instruction transaction emitted no ConfidentialInvoiceRequested event.",
+            "attestor-unavailable",
+            "Could not encrypt the invoice to the attestor's key.",
           );
         }
-        setState((prev) => ({ ...prev, phase: "waiting-for-result", actionId }));
 
-        // --- 5. Poll for the TEE-signed result --------------------------------
-        let result: FccResult;
+        // --- 3. Validate and sign, server-side --------------------------------
+        setState((prev) => ({ ...prev, phase: "attesting" }));
+        let attestation: ConfidentialAttestation;
+        let signature: Hex;
         try {
-          result = await pollForResult(actionId, controller.signal);
+          const response = await fetch("/api/attestor/create", {
+            method: "POST",
+            signal: controller.signal,
+            cache: "no-store",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ciphertext }),
+          });
+
+          const body = (await response.json()) as AttestorCreateResponse;
+          if (!response.ok || !body.ok) {
+            const message = body.ok ? "The attestor rejected this invoice." : body.message;
+            // A 422 is the invoice failing validation; anything else is the service itself.
+            return fail(
+              response.status === 422 ? "attestor-rejected" : "attestor-unavailable",
+              message,
+            );
+          }
+
+          attestation = deserialiseAttestation(body.attestation);
+          signature = body.signature;
         } catch (error) {
           if (error instanceof DOMException && error.name === "AbortError") return undefined;
-          const attached = (error as { confidential?: ConfidentialError }).confidential;
-          if (attached) return fail(attached.kind, attached.message);
-          return fail("result-timeout", "Could not retrieve the TEE result.");
+          return fail("attestor-unavailable", "Could not reach the attestor service.");
         }
 
-        // --- 6. Relay the exact signed bytes ----------------------------------
-        setState((prev) => ({ ...prev, phase: "relaying-result" }));
+        setState((prev) => ({ ...prev, attestationId: attestation.attestationId }));
+
+        // --- 4. Relay the signed attestation ----------------------------------
+        setState((prev) => ({ ...prev, phase: "awaiting-wallet-signature" }));
         let relayReceipt: TransactionReceipt;
         try {
           const hash = await writeContract(config, {
-            chainId: coston2.id,
+            // Pinned so a relay can never be paid for on the wrong chain.
+            chainId: botchain.id,
             abi: escrowAbi,
             address: payload.escrowContract,
             functionName: "relayConfidentialInvoice",
-            // Verbatim, in the contract's parameter order. Re-encoding any of these would change
-            // ActionResult.Hash() and the on-chain signature check would fail.
-            args: [
-              result.data,
-              result.actionId,
-              result.submissionTag,
-              result.status,
-              result.signature,
-            ],
+            // Passed exactly as signed. Changing any field invalidates the EIP-712 digest and the
+            // on-chain check reverts with InvalidAttestorSignature.
+            args: [attestation, signature],
           });
 
-          setState((prev) => ({ ...prev, relayTxHash: hash }));
+          setState((prev) => ({ ...prev, phase: "relaying-result", relayTxHash: hash }));
           relayReceipt = await waitForTransactionReceipt(config, { hash });
         } catch (error) {
           const message = explainError(error);
@@ -267,7 +218,7 @@ export function useConfidentialInvoice() {
           return fail("relay-reverted", "The relay transaction reverted on-chain.");
         }
 
-        // --- 7. Read the new invoice id from the event -------------------------
+        // --- 5. Read the new invoice id from the event -------------------------
         const invoiceId = extractInvoiceId(relayReceipt);
         setState((prev) => ({ ...prev, phase: "confirmed", invoiceId }));
         return invoiceId;
@@ -275,30 +226,10 @@ export function useConfidentialInvoice() {
         if (abortRef.current === controller) abortRef.current = undefined;
       }
     },
-    [config, pollForResult],
+    [config],
   );
 
   return { state, create, reset };
-}
-
-/** Finds `ConfidentialInvoiceRequested` in the instruction receipt and returns its action id. */
-function extractActionId(receipt: TransactionReceipt): Hex | undefined {
-  for (const log of receipt.logs) {
-    try {
-      const decoded = decodeEventLog({
-        abi: instructionSenderAbi,
-        data: log.data,
-        topics: log.topics,
-      });
-      if (decoded.eventName === "ConfidentialInvoiceRequested") {
-        const args = decoded.args as unknown as { actionId: Hex };
-        return args.actionId;
-      }
-    } catch {
-      // Logs from the registry and other contracts are expected here; skip anything foreign.
-    }
-  }
-  return undefined;
 }
 
 /** Finds `InvoiceCreated` in the relay receipt and returns the new invoice id. */

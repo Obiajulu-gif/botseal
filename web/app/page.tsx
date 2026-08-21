@@ -31,11 +31,11 @@ import {
   CardTitle,
 } from "@/components/ui/primitives";
 import { useConfidentialAvailable } from "@/hooks/use-invoices";
-import { env, isEscrowConfigured, isInstructionSenderConfigured } from "@/lib/env";
-import { coston2 } from "@/lib/flare";
+import { env, isEscrowConfigured, isSettlementTokenConfigured } from "@/lib/env";
+import { botchain } from "@/lib/chain";
 import { cn } from "@/lib/utils";
 
-const FAUCET_URL = "https://faucet.flare.network";
+const FAUCET_URL = "https://faucet.botchain.ai";
 
 const PROTOCOL_STEPS: Array<{
   icon: LucideIcon;
@@ -56,17 +56,17 @@ const PROTOCOL_STEPS: Array<{
     icon: Cpu,
     index: "02",
     title: "Prove",
-    label: "TEE verified",
+    label: "Attestor verified",
     description:
-      "Flare Confidential Compute decrypts and validates inside an enclave, then signs only the settlement facts.",
+      "The attestor decrypts the invoice off-chain, recomputes every total, and signs only the settlement facts.",
   },
   {
     icon: CircleDollarSign,
     index: "03",
     title: "Settle",
-    label: "FXRP escrowed",
+    label: "USDT escrowed",
     description:
-      "The buyer funds at the live FTSOv2 rate while the contract enforces release, refund, and expiry rules.",
+      "The buyer funds the exact invoiced amount while the contract enforces release, refund, and expiry rules.",
   },
 ];
 
@@ -88,7 +88,7 @@ export default function HomePage() {
             </Badge>
             <Badge variant="neutral">
               <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_12px_hsl(var(--accent))]" />
-              Coston2 · chain {coston2.id}
+              {botchain.name} · chain {botchain.id}
             </Badge>
           </div>
 
@@ -98,7 +98,7 @@ export default function HomePage() {
             <span className="text-gradient block">sealed for settlement.</span>
           </h1>
           <p className="mt-7 max-w-2xl text-base leading-7 text-foreground/[0.67] sm:text-lg sm:leading-8">
-            Keep commercial terms unreadable. Prove the total inside trusted compute. Settle in FXRP
+            Keep commercial terms unreadable. Prove the total off-chain. Settle in USDT
             with only the minimum facts exposed on-chain.
           </p>
 
@@ -121,8 +121,8 @@ export default function HomePage() {
 
           <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-xs text-foreground/60">
             <TrustPoint>Client-side encryption</TrustPoint>
-            <TrustPoint>TEE-signed results</TrustPoint>
-            <TrustPoint>Live FTSOv2 pricing</TrustPoint>
+            <TrustPoint>Attestor-signed results</TrustPoint>
+            <TrustPoint>Exact stablecoin settlement</TrustPoint>
           </div>
         </div>
 
@@ -132,7 +132,7 @@ export default function HomePage() {
       {!isEscrowConfigured ? (
         <Alert tone="warning" title="Demo contracts are not configured">
           <p>
-            The interface is ready, but on-chain actions stay disabled until the Coston2 escrow is
+            The interface is ready, but on-chain actions stay disabled until the escrow is
             configured in <code className="font-mono text-xs">web/.env.local</code>.
           </p>
         </Alert>
@@ -141,7 +141,7 @@ export default function HomePage() {
       <section className="content-auto grid gap-px overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.08] sm:grid-cols-2 lg:grid-cols-4">
         <SignalStat icon={LockKeyhole} value="Local-first" label="Plaintext boundary" />
         <SignalStat icon={Fingerprint} value="32 bytes" label="Terms commitment" />
-        <SignalStat icon={Cpu} value="TEE signed" label="Validation result" />
+        <SignalStat icon={Cpu} value="Attestor signed" label="Validation result" />
         <SignalStat icon={Orbit} value="On-chain" label="Escrow enforcement" />
       </section>
 
@@ -172,7 +172,7 @@ export default function HomePage() {
             <p className="eyebrow mb-3">The privacy boundary</p>
             <CardTitle className="text-3xl sm:text-4xl">Reveal the proof, not the business.</CardTitle>
             <CardDescription className="max-w-xl text-base">
-              FlareSeal splits every invoice into two deliberate data zones. Sensitive commercial
+              BotSeal splits every invoice into two deliberate data zones. Sensitive commercial
               context stays encrypted; settlement-critical facts remain independently auditable.
             </CardDescription>
           </CardHeader>
@@ -201,24 +201,23 @@ export default function HomePage() {
               {confidential.isLoading ? (
                 <Badge variant="neutral">Checking</Badge>
               ) : confidential.available ? (
-                <Badge variant="success">TEE available</Badge>
+                <Badge variant="success">Attestor available</Badge>
               ) : (
                 <Badge variant="warning">Setup pending</Badge>
               )}
             </div>
-            <CardTitle className="text-2xl">This build points to real Flare infrastructure.</CardTitle>
+            <CardTitle className="text-2xl">This build points to real BOT Chain infrastructure.</CardTitle>
             <CardDescription>
               No decorative dashboard metrics—these are the contracts and services behind the demo.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-1 p-7 pt-0 sm:p-8 sm:pt-0">
             <DeploymentRow label="Escrow" address={env.escrowAddress} />
-            <DeploymentRow label="Instruction sender" address={env.instructionSenderAddress} />
-            <DeploymentRow label="FXRP" address={env.fxrpAddress} />
+            <DeploymentRow label="Settlement token" address={env.settlementTokenAddress} />
             <div className="mt-5 rounded-xl border border-white/[0.07] bg-black/20 p-4 text-xs leading-5 text-foreground/60">
-              {isInstructionSenderConfigured
-                ? "Confidential instructions route through the configured FCC sender."
-                : "Deploy the FCC instruction sender to activate the full private flow."}
+              {isSettlementTokenConfigured
+                ? "Invoices are escrowed and settled in the configured USD stablecoin."
+                : "Configure the settlement token to activate funding."}
             </div>
             <a
               href={FAUCET_URL}
@@ -226,7 +225,7 @@ export default function HomePage() {
               rel="noopener noreferrer"
               className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "mt-4")}
             >
-              Open Coston2 faucet
+              Open BOT Chain faucet
               <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
             </a>
           </CardContent>
@@ -242,8 +241,8 @@ export default function HomePage() {
               Turn an invoice into a verifiable secret.
             </h2>
             <p className="mt-4 max-w-2xl text-sm leading-6 text-foreground/[0.67] sm:text-base">
-              Create the private payload, watch the TEE lifecycle, and inspect exactly what reaches
-              Coston2.
+              Create the private payload, watch the attestation lifecycle, and inspect exactly what
+              reaches the chain.
             </p>
           </div>
           <Link
@@ -275,7 +274,7 @@ function SealedInvoiceVisual() {
       </div>
 
       <div className="float-delayed absolute right-5 top-20 rounded-xl border border-accent/20 bg-accent/[0.08] px-3 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-accent backdrop-blur-md">
-        TEE · attested
+        Attestor · signed
       </div>
 
       <div className="float-slow absolute left-4 top-32 rounded-xl border border-primary/20 bg-primary/[0.08] px-3 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-[#ff9a7d] backdrop-blur-md sm:left-8">

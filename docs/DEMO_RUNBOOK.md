@@ -1,37 +1,40 @@
 # Demo runbook
 
-Deterministic order, exact commands. Total time ~10 minutes once deployed.
+Deterministic order, exact commands. Total time ~6 minutes once deployed.
 
 ---
 
 ## Before the demo
 
-Two wallet accounts, both on Coston2:
+Two wallet accounts, both on BOT Chain:
 
 | Role | Needs |
 |---|---|
-| **Seller** | C2FLR for gas |
-| **Buyer** | C2FLR for gas **and** test FXRP |
+| **Seller** | BOT for gas |
+| **Buyer** | BOT for gas **and** USDT |
 
-Both from <https://faucet.flare.network>. They must be different addresses — the escrow reverts with
-`SameSellerAndBuyer` otherwise.
+They must be different addresses — the escrow reverts with `SameSellerAndBuyer` otherwise.
 
-Pre-flight:
+On testnet, BOT comes from <https://faucet.botchain.ai> and USDT from the mock you minted in
+[deployment step 2](DEPLOYMENT.md#2-settlement-token). On mainnet there is no faucet for either.
+
+Pre-flight, in order:
 
 ```bash
 node scripts/check-env.mjs
 ```
 
 ```bash
-node scripts/smoke-coston2.mjs
+cd contracts && npm run smoke:botchain
 ```
 
 ```bash
-curl -s $FCC_PROXY_URL/info | jq '.teeInfo.publicKey.x'
+cd web && npm run check-attestor
 ```
 
-If the third command fails, the tunnel is down — restart it and update `FCC_PROXY_URL`. Have the
-[fallback](#if-fcc-is-down) ready.
+The third is the one that matters. It exercises the confidential path for real — encrypt, decrypt,
+validate, sign, recover — so if it passes, the demo will work. If it fails, fix it before you have
+an audience.
 
 Start the app:
 
@@ -43,8 +46,8 @@ cd web && npm run build && npm run start
 
 ## Act 1 — Create a confidential invoice (seller)
 
-1. Open `http://localhost:3000`, connect the **seller** wallet. Header shows a green **Coston2**
-   badge and the deployment panel shows all three addresses.
+1. Open the app, connect the **seller** wallet. The header shows a green **BOT Chain** badge and
+   the deployment panel shows the escrow and settlement token addresses.
 
 2. **New invoice**. Fill in:
 
@@ -58,47 +61,49 @@ cd web && npm run build && npm run start
    | Tax | `50.25` |
    | Discount | `100.00` |
 
-   The totals panel shows **$2,510.22** and `251022 cents`, computed as
-   `255997 − 10000 + 5025`. Point out that it is integer arithmetic — the panel prints the raw cent
-   count.
+   The totals panel shows **$2,510.22** and `251022 cents`, computed as `255997 − 10000 + 5025`.
+   Point out that it prints the raw cent count — this is integer arithmetic end to end, and the
+   attestor is going to recompute this same number from the line items rather than take the
+   browser's word for it.
 
 3. **Create private invoice**. The progress panel walks the state machine:
 
    ```
-   loading-extension-info → encrypting → awaiting-wallet-signature
-   → submitting-instruction → waiting-for-result → relaying-result → confirmed
+   loading-attestor-info → encrypting → attesting
+   → awaiting-wallet-signature → relaying-result → confirmed
    ```
 
-   Two wallet confirmations: the instruction, then the relay. The TEE step normally takes 10–30s.
+   **One wallet confirmation.** Worth saying out loud: the previous version of this needed two, plus
+   an indefinite wait while a proxy was polled.
 
 4. You land on the invoice detail page.
 
-**The point to make:** open the instruction transaction on the explorer. The calldata is opaque
-ciphertext. No description, no reference, no quantities. Then open the escrow storage: seller, buyer,
-`251022`, due date, and a 32-byte commitment.
+**The point to make:** open the relay transaction on the explorer. The calldata is six fields and a
+signature — parties, a cent total, a due date, and two 32-byte hashes. No description, no reference,
+no quantities, no tax breakdown. Then open the escrow storage and show the same thing: there is
+nowhere for the private terms to be, because there is no field for them.
 
 ---
 
 ## Act 2 — Fund and settle (buyer)
 
-5. Switch to the **buyer** wallet. Dashboard shows the invoice with a **Buyer** badge.
+5. Switch to the **buyer** wallet. The dashboard shows the invoice with a **Buyer** badge.
 
-6. Open it, click **Fund this invoice** (or go to `/pay/<id>`). The page shows:
+6. Open it and click **Fund this invoice** (or go to `/pay/<id>`). The page shows the required USDT,
+   the buyer's balance, and the current allowance.
 
-   - Required FXRP, from a simulation of the contract's own `quoteInvoice`
-   - The live XRP/USD price and how old the observation is
-   - Your FXRP balance and current allowance
+   Note what is *not* there: no price, no slippage selector, no "quote expires in" countdown. The
+   amount was fixed when the invoice was created and cannot move.
 
-7. Pick a slippage tolerance (1% is the default). The page shows the exact ceiling that will be
-   authorised.
+7. **Approve USDT** — it approves the exact amount, not unlimited. Because the amount cannot change,
+   there is no buffer left over afterwards.
 
-8. **Approve FXRP** — note it approves the exact amount, not unlimited.
+8. **Fund escrow**. The contract recomputes the figure from the invoice's stored cent total and
+   transfers exactly that. The page supplies no amount at all.
 
-9. **Fund escrow**. The contract re-reads FTSOv2 and transfers exactly what it computes.
+9. **Release payment to seller**. Status → **Released**.
 
-10. **Release payment to seller**. Status → **Released**.
-
-11. Confirm the seller's FXRP balance increased, in the wallet or the explorer.
+10. Confirm the seller's USDT balance increased, in the wallet or the explorer.
 
 ---
 
@@ -107,32 +112,36 @@ ciphertext. No description, no reference, no quantities. Then open the escrow st
 **Privacy is structural, not promised.** The escrow has no field for a description. There is no
 "private" flag to get wrong — the data was never submitted.
 
-**The TEE is authoritative, not trusted with money.** It validates and signs; the escrow verifies
-the signature, rejects replays, and enforces who may fund, release, and refund. A compromised TEE
-key can fabricate invoices nobody has to pay — it cannot move escrowed FXRP.
+**The attestor is authoritative, not trusted with money.** It validates and signs; the escrow
+verifies the signature, rejects replays, and enforces who may fund, release and refund. A
+compromised attestor key can fabricate invoices nobody has to pay — it cannot move escrowed USDT.
 
-**The price is never client-supplied.** The buyer contributes only a ceiling, which can make funding
-fail but never cost more.
+**Be straight about the trust model.** If someone asks whether we can read the invoice: yes, during
+validation. It is a server key, not an enclave. Saying so is better than being caught implying
+otherwise, and [SECURITY.md](SECURITY.md) says exactly what would have to change.
 
-**Replay is prevented on-chain.** Relay the same result twice and it reverts with
-`FccActionAlreadyConsumed`. There is a contract test for it, and for the fact that a *failed* relay
-does not consume the id.
+**Nothing to manipulate on price.** A USD invoice settled in a USD stablecoin needs no oracle, so
+there is no feed to attack, no staleness window, and no way for a buyer to influence what they pay.
+The tradeoff is depeg risk, which is visible to both parties.
+
+**Replay is prevented on-chain.** Relay the same attestation twice and it reverts with
+`AttestationAlreadyConsumed`. There is a contract test for it, and for the fact that a *failed*
+relay does not consume the id.
 
 ---
 
-## If FCC is down
+## If the attestor is down
 
-Level-2 fallback (see README, §Known limitations):
-
-1. Show the already-recorded confidential transactions from `BUILD_REPORT.md` — the confidential
-   path demonstrably worked.
-2. Set `NEXT_PUBLIC_ENABLE_PUBLIC_MODE=true`, restart the frontend.
-3. Use **Create public fallback invoice**. Every such invoice is labelled **Public fallback** in the
-   UI and its FCC action id is empty.
-4. The FXRP and FTSOv2 half of the demo — quote, approve, fund, release — is unaffected and real.
+1. Set `NEXT_PUBLIC_ENABLE_PUBLIC_MODE=true` and restart the frontend.
+2. Use **Create public fallback invoice**. Every such invoice is labelled **Public fallback** in the
+   UI and its attestation id is empty.
+3. The USDT half of the demo — quote, approve, fund, release — is unaffected and real.
 
 Say plainly that the confidential path is the point and this is a continuity measure. Do not present
 a public invoice as a confidential one.
+
+The most likely cause is an unset or malformed `ATTESTOR_PRIVATE_KEY`, which surfaces as a 503 from
+`/api/attestor/info` with the reason in the message.
 
 ---
 
@@ -140,7 +149,3 @@ a public invoice as a confidential one.
 
 Invoices are append-only; nothing needs resetting. For a clean dashboard use a fresh seller address,
 or note that `nextInvoiceId` keeps counting.
-
-```bash
-cd fcc && ./scripts/stop-services.sh
-```

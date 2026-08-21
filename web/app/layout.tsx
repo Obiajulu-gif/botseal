@@ -19,11 +19,11 @@ const displayFont = Space_Grotesk({
 
 export const metadata: Metadata = {
   title: {
-    default: "FlareSeal — private invoices, provable settlement",
-    template: "%s — FlareSeal",
+    default: "BotSeal — private invoices, provable settlement",
+    template: "%s — BotSeal",
   },
   description:
-    "Seal confidential invoices inside Flare Confidential Compute and settle them in FXRP with minimal on-chain disclosure.",
+    "Seal confidential invoices off-chain and settle them in USDT on BOT Chain, with minimal on-chain disclosure.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -39,8 +39,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <footer className="mx-auto max-w-7xl px-4 pb-10 pt-8 text-xs text-muted-foreground sm:px-6 lg:px-8">
             <div className="section-rule mb-6 h-px" />
             <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-              <p>FlareSeal · Private terms. Provable settlement.</p>
-              <p className="opacity-60">Coston2 testnet · Experimental software · No real value</p>
+              <p>BotSeal · Private terms. Provable settlement.</p>
+              <p className="opacity-60">BOT Chain · Experimental software · Unaudited</p>
             </div>
           </footer>
         </Providers>

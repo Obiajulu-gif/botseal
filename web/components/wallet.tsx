@@ -4,7 +4,7 @@
  * Wallet connection, network status, and the network guard.
  *
  * The wrong-network banner is persistent and every transaction button in the app is disabled until
- * the wallet is on Coston2 — a write sent to the wrong chain would either revert or, worse, hit a
+ * the wallet is on BOT Chain — a write sent to the wrong chain would either revert or, worse, hit a
  * different contract at the same address.
  */
 
@@ -13,14 +13,14 @@ import Link from "next/link";
 import { FilePlus2, LayoutDashboard } from "lucide-react";
 import { useAccount, useChainId, useConnect, useDisconnect, useSwitchChain } from "wagmi";
 
-import { coston2 } from "@/lib/flare";
+import { botchain } from "@/lib/chain";
 import { addressUrl, shortenHex } from "@/lib/explorer";
 import { Alert, Badge, Button } from "@/components/ui/primitives";
 
 export function useOnCorrectNetwork(): boolean {
   const chainId = useChainId();
   const { isConnected } = useAccount();
-  return isConnected && chainId === coston2.id;
+  return isConnected && chainId === botchain.id;
 }
 
 export function ConnectButton() {
@@ -68,7 +68,7 @@ export function NetworkBadge() {
   const { isConnected } = useAccount();
 
   if (!isConnected) return <Badge variant="neutral">Not connected</Badge>;
-  if (chainId === coston2.id) return <Badge variant="success">Coston2</Badge>;
+  if (chainId === botchain.id) return <Badge variant="success">{botchain.name}</Badge>;
   return <Badge variant="danger">Chain {chainId}</Badge>;
 }
 
@@ -81,22 +81,22 @@ export function WrongNetworkBanner() {
   const { isConnected } = useAccount();
   const { switchChain, isPending } = useSwitchChain();
 
-  if (!isConnected || chainId === coston2.id) return null;
+  if (!isConnected || chainId === botchain.id) return null;
 
   return (
     <div className="border-b border-destructive/30 bg-destructive/10 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
         <p className="text-sm text-red-200">
-          Wrong network: your wallet is on chain {chainId}. FlareSeal runs on Flare Testnet Coston2
-          (chain {coston2.id}). All actions are disabled.
+          Wrong network: your wallet is on chain {chainId}. This app runs on {botchain.name}
+          (chain {botchain.id}). All actions are disabled.
         </p>
         <Button
           size="sm"
           variant="destructive"
           disabled={isPending}
-          onClick={() => switchChain({ chainId: coston2.id })}
+          onClick={() => switchChain({ chainId: botchain.id })}
         >
-          {isPending ? "Switching…" : "Switch to Coston2"}
+          {isPending ? "Switching…" : `Switch to ${botchain.name}`}
         </Button>
       </div>
     </div>
@@ -104,7 +104,7 @@ export function WrongNetworkBanner() {
 }
 
 /**
- * Wraps page content that requires a connected wallet on Coston2, rendering an explanatory
+ * Wraps page content that requires a connected wallet on BOT Chain, rendering an explanatory
  * placeholder otherwise.
  */
 export function RequireWallet({ children }: { children: React.ReactNode }) {
@@ -114,16 +114,16 @@ export function RequireWallet({ children }: { children: React.ReactNode }) {
   if (!isConnected) {
     return (
       <Alert tone="info" title="Wallet not connected">
-        <p className="mb-3">Connect an EVM wallet on Coston2 to continue.</p>
+        <p className="mb-3">Connect an EVM wallet on {botchain.name} to continue.</p>
         <ConnectButton />
       </Alert>
     );
   }
 
-  if (chainId !== coston2.id) {
+  if (chainId !== botchain.id) {
     return (
       <Alert tone="warning" title="Wrong network">
-        Switch your wallet to Flare Testnet Coston2 (chain {coston2.id}) to continue.
+        Switch your wallet to {botchain.name} (chain {botchain.id}) to continue.
       </Alert>
     );
   }
@@ -138,15 +138,15 @@ export function SiteHeader() {
         <div className="flex items-center gap-7">
           <Link
             href="/"
-            aria-label="FlareSeal home"
+            aria-label="BotSeal home"
             className="relative h-9 w-[8.75rem] shrink-0 overflow-hidden rounded-lg border border-white/10 bg-[#fafaf8] shadow-[0_10px_35px_hsl(var(--primary)/0.12)] transition-transform hover:scale-[1.02]"
           >
             <Image
-              src="/brand/flareseal-logo.png"
-              alt="FlareSeal"
+              src="/logo.svg"
+              alt="BotSeal"
               fill
               sizes="140px"
-              className="object-cover object-center"
+              className="object-contain object-center p-1.5"
               priority
             />
           </Link>

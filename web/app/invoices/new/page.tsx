@@ -40,7 +40,7 @@ import {
 } from "@/hooks/use-confidential-invoice";
 import { useConfidentialAvailable, useEscrowWrite } from "@/hooks/use-invoices";
 import { escrowAddress } from "@/lib/contracts";
-import { env, isEscrowConfigured, isInstructionSenderConfigured } from "@/lib/env";
+import { env, isEscrowConfigured } from "@/lib/env";
 import {
   buildPrivateInvoicePayload,
   computeTotals,
@@ -62,7 +62,7 @@ const EMPTY_ITEM = { description: "", quantity: "1", unitPriceUsd: "" };
 
 const CREATE_STEPS: Array<{ icon: LucideIcon; index: string; label: string; detail: string }> = [
   { icon: FileText, index: "01", label: "Draft", detail: "Terms stay local" },
-  { icon: LockKeyhole, index: "02", label: "Seal", detail: "Encrypt to the TEE" },
+  { icon: LockKeyhole, index: "02", label: "Seal", detail: "Encrypt to the attestor" },
   { icon: Cpu, index: "03", label: "Verify", detail: "Validate confidentially" },
   { icon: Send, index: "04", label: "Relay", detail: "Commit minimal proof" },
 ];
@@ -73,7 +73,7 @@ export default function NewInvoicePage() {
       <PageHeader
         eyebrow="Private issuance flow"
         title="New invoice"
-        description="Compose commercial terms locally, seal them to Flare Confidential Compute, and relay only the verified settlement proof."
+        description="Compose commercial terms locally, seal them to the attestor, and relay only the signed settlement facts."
       />
 
       <div className="grid gap-px overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.08] sm:grid-cols-2 lg:grid-cols-4">
@@ -288,7 +288,7 @@ function InvoiceForm() {
           <CardHeader>
             <CardTitle>Line items</CardTitle>
             <CardDescription>
-              Private. Encrypted before submission and readable only inside the TEE.
+              Private. Encrypted in your browser and readable only by the attestor.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -374,7 +374,7 @@ function InvoiceForm() {
             </Button>
             {fields.length >= MAX_ITEMS ? (
               <p className="text-xs text-muted-foreground">
-                The TEE accepts at most {MAX_ITEMS} items.
+                The attestor accepts at most {MAX_ITEMS} items.
               </p>
             ) : null}
           </CardContent>
@@ -383,7 +383,7 @@ function InvoiceForm() {
         <Card>
           <CardHeader>
             <CardTitle>Adjustments</CardTitle>
-            <CardDescription>Both are private and folded into the total by the TEE.</CardDescription>
+            <CardDescription>Both are private and folded into the total by the attestor.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
@@ -410,7 +410,7 @@ function InvoiceForm() {
         </Card>
 
         <div className="flex flex-wrap gap-3">
-          {/* Gated on the escrow's TEE address, not just the InstructionSender: without a
+          {/* Gated on the escrow's attestor address: without a
               configured signer the relay reverts, and the user would have paid for the
               instruction transaction before finding out. */}
           <Button type="submit" size="lg" disabled={busy || !confidentialReady}>
@@ -433,14 +433,14 @@ function InvoiceForm() {
 
         {!confidentialReady && !confidential.isLoading ? (
           <Alert tone="warning" title="Confidential mode unavailable">
-            {!isInstructionSenderConfigured ? (
+            {!isEscrowConfigured ? (
               <p>
                 <code className="font-mono text-xs">NEXT_PUBLIC_INSTRUCTION_SENDER_ADDRESS</code> is
                 not set, so the private flow is disabled.
               </p>
             ) : (
               <p>
-                The escrow has no TEE signing address configured yet, so{" "}
+                The escrow has no attestor signing address configured yet, so{" "}
                 <code className="font-mono text-xs">relayConfidentialInvoice</code> would revert with{" "}
                 <code className="font-mono text-xs">TeeNotConfigured</code>. The button is disabled
                 rather than letting you pay for an instruction that cannot be relayed.
@@ -487,7 +487,7 @@ function TotalsPanel({ totals }: { totals?: ReturnType<typeof computeTotals> }) 
               </dd>
             </div>
             <p className="pt-1 text-xs text-muted-foreground">
-              {totals.finalTotalCents.toString()} cents · the TEE recomputes this and its value wins.
+              {totals.finalTotalCents.toString()} cents · the attestor recomputes this and its value wins.
             </p>
           </dl>
         ) : (
@@ -510,11 +510,10 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 const PHASE_ORDER: ConfidentialState["phase"][] = [
-  "loading-extension-info",
+  "loading-attestor-info",
   "encrypting",
+  "attesting",
   "awaiting-wallet-signature",
-  "submitting-instruction",
-  "waiting-for-result",
   "relaying-result",
   "confirmed",
 ];
@@ -559,23 +558,11 @@ function ProgressPanel({
           })}
         </ol>
 
-        {state.phase === "waiting-for-result" ? (
-          <p className="text-xs text-muted-foreground">Waited {state.waitedSeconds}s.</p>
-        ) : null}
-
         <dl className="space-y-2 text-xs">
-          {state.instructionTxHash ? (
+          {state.attestationId ? (
             <div className="flex justify-between gap-2">
-              <dt className="text-muted-foreground">Instruction</dt>
-              <dd>
-                <TxLink hash={state.instructionTxHash} />
-              </dd>
-            </div>
-          ) : null}
-          {state.actionId ? (
-            <div className="flex justify-between gap-2">
-              <dt className="text-muted-foreground">Action id</dt>
-              <dd className="font-mono">{`${state.actionId.slice(0, 10)}…`}</dd>
+              <dt className="text-muted-foreground">Attestation id</dt>
+              <dd className="font-mono">{`${state.attestationId.slice(0, 10)}…`}</dd>
             </div>
           ) : null}
           {state.relayTxHash ? (
@@ -610,9 +597,9 @@ function errorTitle(kind: string): string {
     case "instruction-failed":
       return "Instruction failed";
     case "result-timeout":
-      return "Timed out waiting for the TEE";
-    case "tee-reported-error":
-      return "The TEE rejected this invoice";
+      return "Could not reach the attestor";
+    case "attestor-rejected":
+      return "The attestor rejected this invoice";
     case "relay-reverted":
       return "Relay reverted";
     default:

@@ -6,12 +6,12 @@ import { keccak256, toUtf8Bytes } from "ethers";
  * on-chain state for reviewers.
  *
  * This uses `createPublicInvoice`, NOT the confidential path. The commitment is computed locally
- * from fresh entropy, so it is hiding — but no TEE validated it, and the invoice is marked
+ * from fresh entropy, so it is hiding — but no attestor validated it, and the invoice is marked
  * `confidential = false` on-chain. The UI labels it "Public fallback" everywhere. Nothing here
- * simulates or stands in for a TEE-signed invoice.
+ * simulates or stands in for an attestor-signed invoice.
  *
  * Usage:
- *   BUYER_ADDRESS=0x... npx hardhat run scripts/seed-demo-invoice.ts --network coston2
+ *   BUYER_ADDRESS=0x... npx hardhat run scripts/seed-demo-invoice.ts --network botchain
  *
  * Optional:
  *   AMOUNT_USD=2510.22    invoice total in dollars (default 2510.22)
@@ -23,11 +23,13 @@ async function main() {
   if (!signer) throw new Error("No signer. Set DEPLOYER_PRIVATE_KEY in contracts/.env.");
 
   const network = await ethers.provider.getNetwork();
-  if (network.chainId !== 114n) {
-    throw new Error(`Expected Coston2 (114), got chain ${network.chainId}.`);
+  if (network.chainId !== 677n && network.chainId !== 968n) {
+    throw new Error(
+      `Expected BOT Chain mainnet (677) or testnet (968), got chain ${network.chainId}.`,
+    );
   }
 
-  const escrowAddress = process.env.ESCROW_ADDRESS ?? readDeployedEscrow();
+  const escrowAddress = process.env.ESCROW_ADDRESS ?? readDeployedEscrow(network.chainId);
   const buyer = process.env.BUYER_ADDRESS?.trim();
 
   if (!buyer || !ethers.isAddress(buyer)) {
@@ -58,10 +60,10 @@ async function main() {
   // 32 bytes of entropy keeps the commitment hiding even though the terms are simple.
   const salt = ethers.hexlify(ethers.randomBytes(32));
   const termsCommitment = keccak256(
-    toUtf8Bytes(`FLARESEAL_PUBLIC_DEMO_V1:${reference}:${usdAmountCents}:${dueAt}:${salt}`),
+    toUtf8Bytes(`BOTSEAL_PUBLIC_DEMO_V1:${reference}:${usdAmountCents}:${dueAt}:${salt}`),
   );
 
-  const escrow = await ethers.getContractAt("FlareSealEscrow", escrowAddress, signer);
+  const escrow = await ethers.getContractAt("BotSealEscrow", escrowAddress, signer);
 
   console.log("Escrow          :", escrowAddress);
   console.log("Seller          :", signer.address);
@@ -93,23 +95,29 @@ async function main() {
   if (invoiceId === undefined) throw new Error("No InvoiceCreated event in the receipt.");
 
   const explorer =
-    process.env.COSTON2_EXPLORER_BASE_URL ?? "https://coston2-explorer.flare.network";
+    network.chainId === 677n
+      ? process.env.BOTCHAIN_EXPLORER_BASE_URL ?? "https://scan.botchain.ai"
+      : process.env.BOTCHAIN_TESTNET_EXPLORER_BASE_URL ?? "https://scan.bohr.life";
+  const appUrl = process.env.APP_BASE_URL?.replace(/\/+$/, "") ?? "";
 
   console.log("");
   console.log("Invoice created :", `#${invoiceId}`);
   console.log("Transaction     :", `${explorer}/tx/${receipt.hash}`);
-  console.log("View in the app :", `https://flareseal.vercel.app/invoices/${invoiceId}`);
-  console.log("Buyer pays at   :", `https://flareseal.vercel.app/pay/${invoiceId}`);
+  if (appUrl) {
+    console.log("View in the app :", `${appUrl}/invoices/${invoiceId}`);
+    console.log("Buyer pays at   :", `${appUrl}/pay/${invoiceId}`);
+  }
   console.log("");
   console.log("Note: this is a PUBLIC fallback invoice (confidential = false). The UI labels it as");
-  console.log("such. It is not, and does not stand in for, a TEE-validated confidential invoice.");
+  console.log("such. It is not, and does not stand in for, an attestor-validated invoice.");
 }
 
-function readDeployedEscrow(): string {
+function readDeployedEscrow(chainId: bigint): string {
+  const file = `botchain-${chainId}.json`;
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const deployment = require("../deployments/coston2.json") as { escrowAddress?: string };
+  const deployment = require(`../deployments/${file}`) as { escrowAddress?: string };
   if (!deployment.escrowAddress) {
-    throw new Error("No escrowAddress in deployments/coston2.json — set ESCROW_ADDRESS instead.");
+    throw new Error(`No escrowAddress in deployments/${file} — set ESCROW_ADDRESS instead.`);
   }
   return deployment.escrowAddress;
 }

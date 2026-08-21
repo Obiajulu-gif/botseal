@@ -3,14 +3,13 @@
 /**
  * Buyer payment flow.
  *
- * The quote is a simulation of the contract's own `quoteInvoice`, so the number shown is the number
- * the contract computes. It is never passed back in: `fundInvoice` re-reads FTSOv2 on-chain and the
- * only value this page supplies is `maxFxrpAmount`, a ceiling that can make funding fail but can
- * never make it cost more.
+ * The amount comes from the contract's own `quoteInvoice`, so the number shown is the number the
+ * contract charges. It is never passed back in: `fundInvoice` recomputes it from the invoice's
+ * stored cent total, and this page supplies no amount at all.
  */
 
 import Link from "next/link";
-import { use, useState } from "react";
+import { use } from "react";
 import { useAccount } from "wagmi";
 
 import { AddressLink, PageHeader, StatusBadge } from "@/components/common";
@@ -29,18 +28,17 @@ import {
 } from "@/components/ui/primitives";
 import {
   formatTokenAmount,
-  useApproveFxrp,
-  useFxrpAllowance,
-  useFxrpBalance,
-  useFxrpMetadata,
+  useApproveSettlementToken,
+  useSettlementTokenAllowance,
+  useSettlementTokenBalance,
+  useSettlementTokenMetadata,
   useInvoiceQuote,
-} from "@/hooks/use-fxrp";
+} from "@/hooks/use-settlement-token";
 import { useInvoice, useSettlementActions } from "@/hooks/use-invoices";
 import { InvoiceStatus, type Invoice } from "@/lib/contracts";
 import { isEscrowConfigured } from "@/lib/env";
-import { applySlippage, SLIPPAGE_OPTIONS } from "@/lib/fcc";
 import { formatCentsAsCurrency } from "@/lib/invoice";
-import { formatAge, formatTimestamp, formatWeiPrice } from "@/lib/utils";
+import { formatTimestamp } from "@/lib/utils";
 
 export default function PayPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -56,9 +54,9 @@ export default function PayPage({ params }: { params: Promise<{ id: string }> })
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow="FXRP escrow funding"
+        eyebrow="Escrow funding"
         title={`Pay invoice #${id}`}
-        description="Review the live FTSOv2 quote, approve the exact FXRP ceiling, and fund the escrow without exposing private invoice terms."
+        description="Review the amount due, approve exactly that much, and fund the escrow without exposing private invoice terms."
         action={
           <Link
             href={`/invoices/${id}`}
@@ -87,13 +85,12 @@ function PayFlow({ invoiceId }: { invoiceId: bigint }) {
   const { data, isLoading } = useInvoice(invoiceId);
   const invoice = data as unknown as Invoice | undefined;
 
-  const { symbol, decimals } = useFxrpMetadata();
-  const balance = useFxrpBalance(address);
-  const allowance = useFxrpAllowance(address);
-  const approve = useApproveFxrp();
+  const { symbol, decimals } = useSettlementTokenMetadata();
+  const balance = useSettlementTokenBalance(address);
+  const allowance = useSettlementTokenAllowance(address);
+  const approve = useApproveSettlementToken();
   const actions = useSettlementActions(invoiceId);
 
-  const [slippageBps, setSlippageBps] = useState<bigint>(SLIPPAGE_OPTIONS[1].bps);
 
   const isPending = invoice?.status === InvoiceStatus.Pending;
   const quote = useInvoiceQuote(invoiceId, isPending);
@@ -156,14 +153,14 @@ function PayFlow({ invoiceId }: { invoiceId: bigint }) {
     );
   }
 
-  const required = quote.data?.requiredFxrp;
-  const maxAmount = required !== undefined ? applySlippage(required, slippageBps) : undefined;
+  // Fixed for the life of the invoice: a USD total settled in a USD stablecoin cannot be
+  // repriced, so there is no slippage ceiling to choose and no quote to age out.
+  const required = quote.data as bigint | undefined;
   const currentAllowance = (allowance.data as bigint | undefined) ?? 0n;
   const currentBalance = (balance.data as bigint | undefined) ?? 0n;
 
-  const needsApproval = maxAmount !== undefined && currentAllowance < maxAmount;
-  const insufficientBalance = maxAmount !== undefined && currentBalance < maxAmount;
-  const priceAge = quote.data ? now - Number(quote.data.priceTimestamp) : undefined;
+  const needsApproval = required !== undefined && currentAllowance < required;
+  const insufficientBalance = required !== undefined && currentBalance < required;
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
@@ -171,8 +168,8 @@ function PayFlow({ invoiceId }: { invoiceId: bigint }) {
         <CardHeader>
           <CardTitle>Payment</CardTitle>
           <CardDescription>
-            The escrow reads the price on-chain when you fund; this quote is a simulation of that
-            same call.
+            The amount was fixed when this invoice was created. It cannot move between now and the
+            moment you fund.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
@@ -185,32 +182,25 @@ function PayFlow({ invoiceId }: { invoiceId: bigint }) {
 
           {quote.isLoading ? (
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <Spinner /> Fetching the XRP/USD price from FTSOv2…
+              <Spinner /> Reading the amount due…
             </div>
           ) : quote.isError ? (
-            <Alert tone="danger" title="Could not price this invoice">
+            <Alert tone="danger" title="Could not read the amount due">
               <p>
                 {quote.error instanceof Error
                   ? quote.error.message.slice(0, 200)
-                  : "The FTSOv2 quote simulation failed."}
+                  : "The escrow did not return an amount."}
               </p>
               <Button variant="outline" size="sm" className="mt-3" onClick={() => quote.refetch()}>
                 Retry
               </Button>
             </Alert>
-          ) : quote.data && decimals !== undefined ? (
+          ) : required !== undefined && decimals !== undefined ? (
             <dl className="space-y-3 text-sm">
               <QuoteRow
                 label={`Required ${symbol}`}
-                value={formatTokenAmount(quote.data.requiredFxrp, decimals)}
+                value={formatTokenAmount(required, decimals)}
                 emphasis
-              />
-              <QuoteRow label="XRP/USD" value={`$${formatWeiPrice(quote.data.xrpUsdPriceWei)}`} />
-              <QuoteRow
-                label="Price observed"
-                value={`${formatTimestamp(quote.data.priceTimestamp)}${
-                  priceAge !== undefined ? ` · ${formatAge(priceAge)}` : ""
-                }`}
               />
               <QuoteRow
                 label={`Your ${symbol} balance`}
@@ -223,51 +213,18 @@ function PayFlow({ invoiceId }: { invoiceId: bigint }) {
             </dl>
           ) : null}
 
-          <div className="space-y-2">
-            <span className="text-sm font-medium">Slippage tolerance</span>
-            <div className="flex gap-2">
-              {SLIPPAGE_OPTIONS.map((option) => (
-                <Button
-                  key={option.label}
-                  size="sm"
-                  variant={slippageBps === option.bps ? "default" : "outline"}
-                  onClick={() => setSlippageBps(option.bps)}
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </div>
-            {maxAmount !== undefined && decimals !== undefined ? (
-              <p className="text-xs text-muted-foreground">
-                You will authorise at most{" "}
-                <span className="font-medium text-foreground">
-                  {formatTokenAmount(maxAmount, decimals)} {symbol}
-                </span>
-                . If the price moves beyond this the transaction reverts rather than overpaying.
-              </p>
-            ) : null}
-          </div>
-
           {insufficientBalance ? (
             <Alert tone="warning" title={`Not enough ${symbol}`}>
-              You need at least {decimals !== undefined ? formatTokenAmount(maxAmount!, decimals) : "—"}{" "}
-              {symbol}. Get testnet FXRP from the{" "}
-              <a
-                href="https://faucet.flare.network"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                Coston2 faucet
-              </a>
-              .
+              You need at least{" "}
+              {decimals !== undefined ? formatTokenAmount(required!, decimals) : "—"} {symbol} in
+              this wallet to fund the escrow.
             </Alert>
           ) : null}
 
           <div className="flex flex-wrap gap-3 border-t border-border pt-4">
             <Button
-              disabled={!needsApproval || approve.isPending || maxAmount === undefined}
-              onClick={() => maxAmount !== undefined && approve.mutate(maxAmount)}
+              disabled={!needsApproval || approve.isPending || required === undefined}
+              onClick={() => required !== undefined && approve.mutate(required)}
             >
               {approve.isPending ? <Spinner /> : null}
               {needsApproval ? `Approve ${symbol}` : `${symbol} approved`}
@@ -276,12 +233,9 @@ function PayFlow({ invoiceId }: { invoiceId: bigint }) {
             <Button
               variant={needsApproval ? "outline" : "default"}
               disabled={
-                needsApproval ||
-                insufficientBalance ||
-                actions.isPending ||
-                maxAmount === undefined
+                needsApproval || insufficientBalance || actions.isPending || required === undefined
               }
-              onClick={() => maxAmount !== undefined && actions.fund(maxAmount)}
+              onClick={() => actions.fund()}
             >
               {actions.isPending ? <Spinner /> : null}
               Fund escrow
@@ -315,7 +269,7 @@ function PayFlow({ invoiceId }: { invoiceId: bigint }) {
 
         <Alert tone="info" title="How funding settles">
           <p className="text-muted-foreground">
-            Funding transfers exactly the amount the contract computes from the live feed. Your FXRP
+            Funding transfers exactly the amount the contract computes. Your balance
             is held by the escrow until you release it to the seller, the seller refunds you, or the
             grace period lets you reclaim it.
           </p>

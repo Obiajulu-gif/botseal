@@ -7,14 +7,12 @@
 
 import type { Abi, Hex } from "viem";
 
-import escrowAbiJson from "./abi/FlareSealEscrow.json";
-import instructionSenderAbiJson from "./abi/InstructionSender.json";
+import escrowAbiJson from "./abi/BotSealEscrow.json";
 import { env } from "./env";
 
 export const escrowAbi = escrowAbiJson as Abi;
-export const instructionSenderAbi = instructionSenderAbiJson as Abi;
 
-/** Minimal ERC-20 surface. FXRP is a standard ERC-20 on Coston2. */
+/** Minimal ERC-20 surface. The settlement token is a standard ERC-20. */
 export const erc20Abi = [
   {
     type: "function",
@@ -73,21 +71,16 @@ export function escrowAddress(): Hex {
   return env.escrowAddress as Hex;
 }
 
-export function instructionSenderAddress(): Hex {
-  if (!env.instructionSenderAddress) {
-    throw new MissingAddressError("NEXT_PUBLIC_INSTRUCTION_SENDER_ADDRESS");
+export function settlementTokenAddress(): Hex {
+  if (!env.settlementTokenAddress) {
+    throw new MissingAddressError("NEXT_PUBLIC_SETTLEMENT_TOKEN_ADDRESS");
   }
-  return env.instructionSenderAddress as Hex;
-}
-
-export function fxrpAddress(): Hex {
-  if (!env.fxrpAddress) throw new MissingAddressError("NEXT_PUBLIC_FXRP_ADDRESS");
-  return env.fxrpAddress as Hex;
+  return env.settlementTokenAddress as Hex;
 }
 
 // --- Invoice status ----------------------------------------------------------
 
-/** Mirrors `FlareSealEscrow.InvoiceStatus`. Order is significant. */
+/** Mirrors `BotSealEscrow.InvoiceStatus`. Order is significant. */
 export enum InvoiceStatus {
   None = 0,
   Pending = 1,
@@ -116,10 +109,9 @@ export interface Invoice {
   seller: Hex;
   buyer: Hex;
   termsCommitment: Hex;
-  fccActionId: Hex;
+  attestationId: Hex;
   usdAmountCents: bigint;
-  fxrpAmount: bigint;
-  xrpUsdPriceWei: bigint;
+  tokenAmount: bigint;
   dueAt: bigint;
   createdAt: bigint;
   fundedAt: bigint;

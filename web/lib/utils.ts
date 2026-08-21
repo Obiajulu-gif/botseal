@@ -32,7 +32,7 @@ export function formatAge(seconds: number): string {
 
 /**
  * Formats an 18-decimal wei value as a decimal string with the given precision.
- * Used for the XRP/USD price, which FTSOv2 returns normalised to 18 decimals.
+ * Used for any value a contract returns normalised to 18 decimals.
  */
 export function formatWeiPrice(priceWei: bigint, precision = 6): string {
   const whole = priceWei / 10n ** 18n;

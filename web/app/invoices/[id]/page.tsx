@@ -29,13 +29,13 @@ import {
   CardTitle,
   Spinner,
 } from "@/components/ui/primitives";
-import { formatTokenAmount, useFxrpMetadata } from "@/hooks/use-fxrp";
+import { formatTokenAmount, useSettlementTokenMetadata } from "@/hooks/use-settlement-token";
 import { useInvoice, useIsBuyer, useIsSeller, useSettlementActions } from "@/hooks/use-invoices";
 import { InvoiceStatus, ZERO_BYTES32, type Invoice } from "@/lib/contracts";
 import { env, isEscrowConfigured } from "@/lib/env";
 import { addressUrl } from "@/lib/explorer";
 import { formatCentsAsCurrency } from "@/lib/invoice";
-import { formatTimestamp, formatWeiPrice } from "@/lib/utils";
+import { formatTimestamp } from "@/lib/utils";
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -78,7 +78,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
 function InvoiceDetail({ invoiceId }: { invoiceId: bigint }) {
   const { data, isLoading, isError } = useInvoice(invoiceId);
-  const { symbol, decimals } = useFxrpMetadata();
+  const { symbol, decimals } = useSettlementTokenMetadata();
 
   if (isLoading) {
     return (
@@ -97,7 +97,7 @@ function InvoiceDetail({ invoiceId }: { invoiceId: bigint }) {
   }
 
   const invoice = data as unknown as Invoice;
-  const hasFxrp = invoice.fxrpAmount > 0n && decimals !== undefined;
+  const hasEscrowedAmount = invoice.tokenAmount > 0n && decimals !== undefined;
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
@@ -110,7 +110,7 @@ function InvoiceDetail({ invoiceId }: { invoiceId: bigint }) {
           </div>
           <CardDescription>
             {invoice.confidential
-              ? "Created from a TEE-signed result. Line items were never on-chain."
+              ? "Created from an attestor-signed result. Line items were never on-chain."
               : "Created through the public fallback path — the commitment is unverified."}
           </CardDescription>
         </CardHeader>
@@ -135,20 +135,17 @@ function InvoiceDetail({ invoiceId }: { invoiceId: bigint }) {
             <DetailRow label="Terms commitment" mono>
               {invoice.termsCommitment}
             </DetailRow>
-            <DetailRow label="FCC action id" mono>
-              {invoice.fccActionId === ZERO_BYTES32 ? (
+            <DetailRow label="Attestation id" mono>
+              {invoice.attestationId === ZERO_BYTES32 ? (
                 <span className="text-sm text-muted-foreground">
-                  None — this invoice did not come from the TEE.
+                  None — this invoice was not validated by the attestor.
                 </span>
               ) : (
-                invoice.fccActionId
+                invoice.attestationId
               )}
             </DetailRow>
             <DetailRow label={`${symbol} escrowed`}>
-              {hasFxrp ? formatTokenAmount(invoice.fxrpAmount, decimals) : "—"}
-            </DetailRow>
-            <DetailRow label="Funding XRP/USD">
-              {invoice.xrpUsdPriceWei > 0n ? `$${formatWeiPrice(invoice.xrpUsdPriceWei)}` : "—"}
+              {hasEscrowedAmount ? formatTokenAmount(invoice.tokenAmount, decimals) : "—"}
             </DetailRow>
             <DetailRow label="Created">{formatTimestamp(invoice.createdAt)}</DetailRow>
             <DetailRow label="Funded">{formatTimestamp(invoice.fundedAt)}</DetailRow>
@@ -174,7 +171,7 @@ function InvoiceDetail({ invoiceId }: { invoiceId: bigint }) {
                 rel="noopener noreferrer"
                 className="text-primary hover:underline"
               >
-                Escrow contract on Coston2 explorer ↗
+                Escrow contract on the explorer ↗
               </a>
             ) : null}
             <p className="text-xs text-muted-foreground">

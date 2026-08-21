@@ -1,6 +1,6 @@
 /**
  * Money arithmetic. These are the tests that matter most in the frontend: everything downstream
- * — the TEE payload, the quote, the amount approved — is derived from these integers.
+ * — the attestor payload, the quote, the amount approved — is derived from these integers.
  */
 
 import { describe, expect, it } from "vitest";
@@ -100,7 +100,7 @@ describe("parseQuantity", () => {
     expect(() => parseQuantity("1.5")).toThrow(/whole number/);
   });
 
-  it("rejects quantities above the TEE's ceiling", () => {
+  it("rejects quantities above the attestor's ceiling", () => {
     expect(() => parseQuantity("1000001")).toThrow(/at most/);
   });
 });
@@ -152,7 +152,7 @@ describe("computeTotals", () => {
     ).toThrow(/exceeds the maximum/);
   });
 
-  it("matches the TEE formula: subtotal - discount + tax", () => {
+  it("matches the attestor formula: subtotal - discount + tax", () => {
     const totals = computeTotals(
       [{ description: "a", quantity: "7", unitPriceUsd: "3.33" }],
       "1.11",
@@ -173,7 +173,7 @@ describe("generateSecret", () => {
     expect(generateSecret()).not.toBe(generateSecret());
   });
 
-  it("meets the TEE's minimum length rule", () => {
+  it("meets the attestor's minimum length rule", () => {
     // The extension requires at least 32 characters.
     expect(generateSecret().length).toBeGreaterThanOrEqual(32);
   });

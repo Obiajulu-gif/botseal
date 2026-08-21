@@ -7,7 +7,7 @@ import { useAccount } from "wagmi";
 import { EmptyState, PageHeader, PrivacyBadge, StatusBadge } from "@/components/common";
 import { RequireWallet } from "@/components/wallet";
 import { Alert, Badge, buttonVariants, Card, Spinner } from "@/components/ui/primitives";
-import { formatTokenAmount, useFxrpMetadata } from "@/hooks/use-fxrp";
+import { formatTokenAmount, useSettlementTokenMetadata } from "@/hooks/use-settlement-token";
 import {
   mergeInvoiceIds,
   useBuyerInvoiceIds,
@@ -36,7 +36,7 @@ export default function DashboardPage() {
       {!isEscrowConfigured ? (
         <Alert tone="warning" title="Escrow not configured">
           Set <code className="font-mono text-xs">NEXT_PUBLIC_ESCROW_ADDRESS</code> to a deployed
-          Coston2 escrow to load invoices.
+          escrow to load invoices.
         </Alert>
       ) : (
         <RequireWallet>
@@ -58,7 +58,7 @@ function InvoiceList() {
   );
 
   const { invoices, isLoading, isError, error } = useInvoices(ids);
-  const { symbol, decimals } = useFxrpMetadata();
+  const { symbol, decimals } = useSettlementTokenMetadata();
 
   const sellerIds = new Set((seller.data as readonly bigint[] | undefined) ?? []);
   const buyerIds = new Set((buyer.data as readonly bigint[] | undefined) ?? []);
@@ -74,7 +74,7 @@ function InvoiceList() {
   if (seller.isError || buyer.isError || isError) {
     const detail = seller.error ?? buyer.error ?? error;
     return (
-      <Alert tone="danger" title="Could not reach the Coston2 RPC">
+      <Alert tone="danger" title="Could not reach the BOT Chain RPC">
         {detail instanceof Error ? detail.message : "The invoice list could not be loaded."}
       </Alert>
     );
@@ -128,8 +128,8 @@ function InvoiceList() {
                     {formatCentsAsCurrency(invoice.usdAmountCents)}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
-                    {invoice.fxrpAmount > 0n && decimals !== undefined
-                      ? formatTokenAmount(invoice.fxrpAmount, decimals)
+                    {invoice.tokenAmount > 0n && decimals !== undefined
+                      ? formatTokenAmount(invoice.tokenAmount, decimals)
                       : "—"}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{formatDate(invoice.dueAt)}</td>

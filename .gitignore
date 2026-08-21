@@ -15,7 +15,6 @@
 **/artifacts/
 **/artifacts-hardhat/
 **/cache/
-**/cache-fcc/
 **/typechain-types/
 **/coverage/
 coverage.json
@@ -25,20 +24,12 @@ coverage.json
 **/.env.local
 **/.env.*.local
 !**/.env.example
-fcc/config/extension.env
-fcc/config/proxy/*.toml
-!fcc/config/proxy/*.toml.example
-fcc/**/private*
 *.pem
 *.key
 
-# Local-only deployment output. coston2.json IS committed: it holds public metadata only.
+# Local-only deployment output. botchain-<chainId>.json IS committed: public metadata only.
 contracts/deployments/local*.json
 contracts/deployments/*.local.json
-
-# FCC runtime state
-fcc/results/
-fcc/testing/agents/*/results/
 
 # Playwright
 **/test-results/
