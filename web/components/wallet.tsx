@@ -63,12 +63,19 @@ export function ConnectButton() {
   );
 }
 
+/**
+ * viem's chain name for 677 is plain "BOT Chain", which reads as ambiguous next to a testnet
+ * build. Say "Mainnet" outright: whether this is a real deployment is the first thing anyone
+ * looking at the app wants to know.
+ */
+const NETWORK_LABEL = botchain.testnet ? botchain.name : `${botchain.name} Mainnet`;
+
 export function NetworkBadge() {
   const chainId = useChainId();
   const { isConnected } = useAccount();
 
   if (!isConnected) return <Badge variant="neutral">Not connected</Badge>;
-  if (chainId === botchain.id) return <Badge variant="success">{botchain.name}</Badge>;
+  if (chainId === botchain.id) return <Badge variant="success">{NETWORK_LABEL}</Badge>;
   return <Badge variant="danger">Chain {chainId}</Badge>;
 }
 
@@ -154,12 +161,6 @@ export function SiteHeader() {
             aria-label="Primary navigation"
             className="hidden items-center gap-1 text-sm text-foreground/60 md:flex"
           >
-            <Link
-              href="/#protocol"
-              className="rounded-lg px-3 py-2 transition-colors hover:bg-white/[0.05] hover:text-foreground"
-            >
-              Protocol
-            </Link>
             <Link
               href="/dashboard"
               className="flex items-center gap-2 rounded-lg px-3 py-2 transition-colors hover:bg-white/[0.05] hover:text-foreground"
