@@ -3,9 +3,13 @@
 
 import { createPublicClient, http, getAddress } from "viem";
 
-const SITE = "https://botseal.vercel.app";
-const RPC = "https://rpc.bohr.life";
-const CHAIN_ID = 968;
+// Defaults target the testnet demo. Override to check the mainnet deployment:
+//   VERIFY_CHAIN_ID=677 VERIFY_RPC=https://rpc.botchain.ai npm run verify-live
+const SITE = process.env.VERIFY_SITE ?? "https://botseal.vercel.app";
+const CHAIN_ID = Number(process.env.VERIFY_CHAIN_ID ?? 968);
+const RPC =
+  process.env.VERIFY_RPC ??
+  (CHAIN_ID === 677 ? "https://rpc.botchain.ai" : "https://rpc.bohr.life");
 
 const ESCROW_ABI = [
   { type: "function", name: "attestorAddress", inputs: [], outputs: [{ type: "address" }], stateMutability: "view" },
