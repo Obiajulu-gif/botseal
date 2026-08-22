@@ -1,5 +1,7 @@
 # BotSeal
 
+**Live demo: https://botseal.vercel.app** — BOT Chain Testnet, chain 968.
+
 Confidential invoices, settled in **USDT on BOT Chain**.
 
 A B2B invoice contains things neither party wants public: line items, unit prices, customer

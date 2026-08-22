@@ -136,25 +136,43 @@ What the design does guarantee, and what is enforced by the contract rather than
 
 | Requirement | Status |
 |---|---|
-| BOT Chain **mainnet** deployment | ⛔ **pending** — see below |
+| BOT Chain deployment | ✅ **live on testnet 968** — mainnet pending, see below |
 | Publicly verifiable product with a complete business loop | ✅ issue → fund → release, with refund and expiry paths |
 | Wallet connection and core flow | ✅ injected wallet, chain-pinned writes |
-| Public website / online demo | ⛔ pending mainnet addresses |
+| Public website / online demo | ✅ **https://botseal.vercel.app** |
 | GitHub repository | ✅ this repo |
 | Demo video | ⛔ pending |
 | Original development | ✅ ported from our own earlier project, disclosed above |
 
-**Mainnet deployment is the outstanding item.** The contract, the attestor and the frontend are
-complete and verified; deployment is blocked only on acquiring mainnet BOT for gas — there is no
-mainnet faucet — and USDT for a real demo. The full sequence is scripted and rehearsable on testnet
-968 today: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+**Mainnet is the one outstanding item.** Everything is deployed, wired and verified on testnet 968;
+moving to 677 is the same four commands against a different `--network` flag. It is blocked only on
+acquiring mainnet BOT for gas — there is no mainnet faucet. The deploy script already defaults to
+real mainnet USDT and refuses to run against any token that does not report `USDT`/6 decimals.
 
-### Addresses
+### Live deployment — BOT Chain Testnet (968)
 
-| Contract | Network | Address |
-|---|---|---|
-| `BotSealEscrow` | BOT Chain 677 | _pending_ |
-| USDT (settlement) | BOT Chain 677 | [`0xaBabc7…7a3C`](https://scan.botchain.ai/token/0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C) |
+| | Address |
+|---|---|
+| `BotSealEscrow` | [`0x926A0215BC58c4897c5604a7E5eeCf5D4d84cc1D`](https://scan.bohr.life/address/0x926A0215BC58c4897c5604a7E5eeCf5D4d84cc1D) |
+| USDT (test settlement token, 6d) | [`0x358A95Aa014D112CDFbEe5f3eA599BA14B331CBF`](https://scan.bohr.life/address/0x358A95Aa014D112CDFbEe5f3eA599BA14B331CBF) |
+| Attestor signer | [`0x1399edE7cE143bE5D463471Fa5D09CB8996eB818`](https://scan.bohr.life/address/0x1399edE7cE143bE5D463471Fa5D09CB8996eB818) |
+
+A complete confidential invoice was issued, funded and settled against this deployment:
+
+| Step | Transaction |
+|---|---|
+| Confidential relay | [`0xaa609e39…a6cfaa`](https://scan.bohr.life/tx/0xaa609e39b4f4565aa2e0468535ce022f5d619af461c90632762ecf5a20a6cfaa) |
+| Funded ($2,510.22) | [`0x5fab4d98…ae0063`](https://scan.bohr.life/tx/0x5fab4d9826eb2a34f80db31cb63520fd8d79ba6a1aef1b63faf113296bae0063) |
+| Released to seller | [`0xedf7ecd2…e225e9`](https://scan.bohr.life/tx/0xedf7ecd22885b4e2d3641179ed4ad22c10d75d7985b981ab97acbda46de225e9) |
+
+The relay transaction carried 356 bytes of calldata and no invoice plaintext. Reproduce the whole
+sequence with `npm run smoke-live:testnet`.
+
+The test settlement token has an open `mint()`, so a reviewer can fund their own wallet and run the
+flow without asking anyone for tokens.
+
+Mainnet (677) settles in real USDT
+[`0xaBabc7…7a3C`](https://scan.botchain.ai/token/0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C).
 
 ---
 

@@ -1,12 +1,12 @@
 # Vercel link state — project/org ids for this machine only.
 .vercel
 
-# Local env files are never committed.
-.env
-.env.local
-.env.*.local
+# Local env files are never committed. `vercel link` appends a bare `.env*` here;
+# it must stay ABOVE the negations below, because a later pattern wins and would
+# otherwise silently untrack the two files this repo deliberately commits.
+.env*
 
-# ...but these two are, and neither holds a secret:
+# ...these two are committed, and neither holds a secret:
 #   .env.example    — the documented template
 #   .env.production — public on-chain addresses, read at build time by Vercel
 !.env.example
