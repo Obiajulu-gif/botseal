@@ -136,7 +136,7 @@ What the design does guarantee, and what is enforced by the contract rather than
 
 | Requirement | Status |
 |---|---|
-| BOT Chain deployment | ✅ **live on testnet 968** — mainnet pending, see below |
+| BOT Chain **Mainnet** deployment | ✅ **live on 677** |
 | Publicly verifiable product with a complete business loop | ✅ issue → fund → release, with refund and expiry paths |
 | Wallet connection and core flow | ✅ injected wallet, chain-pinned writes |
 | Public website / online demo | ✅ **https://botseal.vercel.app** |
@@ -144,12 +144,27 @@ What the design does guarantee, and what is enforced by the contract rather than
 | Demo video | ⛔ pending |
 | Original development | ✅ ported from our own earlier project, disclosed above |
 
-**Mainnet is the one outstanding item.** Everything is deployed, wired and verified on testnet 968;
-moving to 677 is the same four commands against a different `--network` flag. It is blocked only on
-acquiring mainnet BOT for gas — there is no mainnet faucet. The deploy script already defaults to
-real mainnet USDT and refuses to run against any token that does not report `USDT`/6 decimals.
+### Live deployment — BOT Chain Mainnet (677)
 
-### Live deployment — BOT Chain Testnet (968)
+| | Address |
+|---|---|
+| `BotSealEscrow` | [`0x358A95Aa014D112CDFbEe5f3eA599BA14B331CBF`](https://scan.botchain.ai/address/0x358A95Aa014D112CDFbEe5f3eA599BA14B331CBF) |
+| Settlement token — real USDT (6d) | [`0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C`](https://scan.botchain.ai/token/0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C) |
+| Attestor signer | [`0x1399edE7cE143bE5D463471Fa5D09CB8996eB818`](https://scan.botchain.ai/address/0x1399edE7cE143bE5D463471Fa5D09CB8996eB818) |
+
+| Step | Transaction |
+|---|---|
+| Escrow deployment | [`0x0fc68461…8571ff`](https://scan.botchain.ai/tx/0x0fc684611748980d7fda42a84ea313b77fa9164d58126e10b36fd4dbab8571ff) |
+| `setAttestorAddress` | [`0xc22688e9…14e3a2`](https://scan.botchain.ai/tx/0xc22688e94458a32169a1927fd197f9ddcf55d5ade1b71e8d6ce5f40dcd14e3a2) |
+
+Deployed against real USDT, not a mock. The deploy script refuses any mainnet token that does not
+report `USDT` and 6 decimals, and every immutable was read back off-chain and checked after
+deployment.
+
+### Rehearsal deployment — BOT Chain Testnet (968)
+
+The mainnet deployment above was rehearsed end to end on testnet first, including a complete
+settled invoice. That deployment is still live and reviewable.
 
 | | Address |
 |---|---|
@@ -168,11 +183,13 @@ A complete confidential invoice was issued, funded and settled against this depl
 The relay transaction carried 356 bytes of calldata and no invoice plaintext. Reproduce the whole
 sequence with `npm run smoke-live:testnet`.
 
-The test settlement token has an open `mint()`, so a reviewer can fund their own wallet and run the
-flow without asking anyone for tokens.
+The test settlement token has an open `mint()`, so a reviewer who wants to exercise the full flow
+without spending real USDT can fund their own wallet on 968 and run it there.
 
-Mainnet (677) settles in real USDT
-[`0xaBabc7…7a3C`](https://scan.botchain.ai/token/0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C).
+> Note for reviewers: the mainnet escrow and the testnet settlement token happen to share the
+> address string `0x358A95Aa…31CBF`. They are unrelated contracts on different chains — an artefact
+> of `CREATE` deriving the address from deployer plus nonce, and the same deployer having sent its
+> first transaction on each chain.
 
 ---
 
