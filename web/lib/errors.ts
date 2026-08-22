@@ -5,6 +5,8 @@
  * amount, and the attestor's rejection strings name a field and a rule, never a value.
  */
 
+import { botchain } from "./chain";
+
 /** Custom error name -> user-facing explanation. Keys match `BotSealEscrow`'s error selectors. */
 const ESCROW_ERRORS: Record<string, string> = {
   ZeroAddress: "That address cannot be zero.",
@@ -47,22 +49,28 @@ const TOKEN_HINTS: Array<[RegExp, string]> = [
   [/transfer amount exceeds balance/i, "Your token balance is too low."],
 ];
 
+// Name the network this build is actually pinned to, with its chain id. "Switch to BOT Chain" is
+// worse than useless on a testnet build: the user follows it to mainnet, which is a different
+// chain with a different escrow, and the relay fails again for a new reason.
+const TARGET = `${botchain.name} (chain ${botchain.id})`;
+
 const WALLET_HINTS: Array<[RegExp, string]> = [
   [/user rejected|user denied|ACTION_REJECTED|4001/i, "You rejected the request in your wallet."],
   [
     /insufficient funds for gas|insufficient funds for intrinsic/i,
-    "Not enough BOT to pay for gas.",
+    `Not enough ${botchain.nativeCurrency.symbol} to pay for gas.`,
   ],
   [
     /chain mismatch|chain not configured|ChainMismatchError|does not match the target chain/i,
-    "Your wallet is on the wrong network. Switch it to BOT Chain and try again.",
+    `Your wallet is on the wrong network. Switch it to ${TARGET} and try again.`,
   ],
   // Seen when a wallet left on another network tries to send: that chain's RPC estimates gas
   // against an account with a zero balance there. The message names gas, but the cause is almost
   // always the network, so it is worth saying both.
   [
     /gas required exceeds allowance|exceeds allowance \(0\)|cannot estimate gas/i,
-    "The transaction could not be estimated. Check your wallet is on BOT Chain and holds BOT for gas.",
+    `The transaction could not be estimated. Check your wallet is on ${TARGET} and holds ` +
+      `${botchain.nativeCurrency.symbol} for gas.`,
   ],
   [/nonce too low|replacement transaction underpriced/i, "A pending transaction is in the way."],
   [/timeout|timed out/i, "The network did not respond in time. Try again."],

@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 
+import { botchain } from "@/lib/chain";
 import { InvoiceStatus, invoiceStatusLabel } from "@/lib/contracts";
 import { explainError } from "@/lib/errors";
 import { addressUrl, shortenHex, txUrl } from "@/lib/explorer";
@@ -180,6 +181,15 @@ describe("explainError", () => {
     expect(explainError(new Error("ChainMismatchError: chain does not match"))).toMatch(
       /wrong network/i,
     );
+  });
+
+  it("names the chain this build is pinned to, not just 'BOT Chain'", () => {
+    // A testnet build that says "switch to BOT Chain" sends the user to mainnet - a different
+    // chain, a different escrow, and a second failure for a new reason. The message has to name
+    // the configured network and its id.
+    const explained = explainError(new Error("ChainMismatchError: chain does not match"));
+    expect(explained).toContain(botchain.name);
+    expect(explained).toContain(String(botchain.id));
   });
 
   it("recognises an ERC-20 allowance failure", () => {
