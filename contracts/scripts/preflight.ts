@@ -1,5 +1,5 @@
 import { ethers } from "hardhat";
-import { networkInfo } from "./botchain";
+import { networkInfo, resolveSettlementToken } from "./botchain";
 
 /**
  * Pre-deployment check. Answers "will the next command work?" without spending anything.
@@ -45,7 +45,9 @@ async function main() {
       funded,
       funded
         ? `${ethers.formatEther(balance)} ${symbol}`
-        : `0 ${symbol} — fund it at https://faucet.botchain.ai`,
+        : net.isMainnet
+          ? `0 BOT — there is no mainnet faucet; send BOT to this exact address`
+          : `0 tBOT — fund it at https://faucet.botchain.ai`,
     ) && allOk;
 
   // A deploy plus the token deploy plus configure-attestor is comfortably under 0.05.
@@ -65,28 +67,19 @@ async function main() {
   }
 
   console.log("\nSettlement token");
-  const tokenAddr = process.env.SETTLEMENT_TOKEN_ADDRESS?.trim();
-  if (!tokenAddr) {
-    mask(
-      "SETTLEMENT_TOKEN_ADDRESS",
-      !net.isMainnet,
-      net.isMainnet
-        ? "unset — mainnet defaults to USDT"
-        : "unset — deploy a test USDT first (npm run deploy-token:testnet)",
-    );
-  } else {
-    const code = await ethers.provider.getCode(tokenAddr);
-    const exists = code !== "0x";
-    allOk = mask("token contract", exists, exists ? tokenAddr : `no code at ${tokenAddr}`) && allOk;
-    if (exists) {
-      const t = new ethers.Contract(
-        tokenAddr,
-        ["function symbol() view returns (string)", "function decimals() view returns (uint8)"],
-        ethers.provider,
-      );
-      const [sym, dec] = await Promise.all([t.symbol(), t.decimals()]);
-      allOk = mask("token metadata", Number(dec) === 6, `${sym}, ${dec} decimals`) && allOk;
-    }
+  // Resolve exactly the way the deploy script will, rather than reimplementing the rules here —
+  // an unset override is correct on mainnet (it defaults to USDT) and fatal on testnet, and
+  // `resolveSettlementToken` is the single place that knows that.
+  try {
+    const token = await resolveSettlementToken(net);
+    const source = process.env.SETTLEMENT_TOKEN_ADDRESS?.trim()
+      ? "from SETTLEMENT_TOKEN_ADDRESS"
+      : "default for this network";
+    allOk = mask("resolves", true, `${token.address} (${source})`) && allOk;
+    allOk =
+      mask("metadata", token.decimals === 6, `${token.symbol}, ${token.decimals} decimals`) && allOk;
+  } catch (error) {
+    allOk = mask("resolves", false, error instanceof Error ? error.message : String(error)) && allOk;
   }
 
   console.log(
