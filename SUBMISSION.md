@@ -156,10 +156,30 @@ What the design does guarantee, and what is enforced by the contract rather than
 |---|---|
 | Escrow deployment | [`0x0fc68461…8571ff`](https://scan.botchain.ai/tx/0x0fc684611748980d7fda42a84ea313b77fa9164d58126e10b36fd4dbab8571ff) |
 | `setAttestorAddress` | [`0xc22688e9…14e3a2`](https://scan.botchain.ai/tx/0xc22688e94458a32169a1927fd197f9ddcf55d5ade1b71e8d6ce5f40dcd14e3a2) |
+| **Confidential invoice #1** | [`0xe526bebe…78622b`](https://scan.botchain.ai/tx/0xe526bebee18561909acdcf7848d1b5d00c8b15245192924cf387b49fcb78622b) |
 
 Deployed against real USDT, not a mock. The deploy script refuses any mainnet token that does not
 report `USDT` and 6 decimals, and every immutable was read back off-chain and checked after
 deployment.
+
+**The confidential path is proven in production, not just in tests.** `web/scripts/smoke-mainnet.mjs`
+encrypts a real invoice to the deployed site's attestor, which decrypts it, recomputes the total
+from the line items, and signs EIP-712 bound to chain 677 and this escrow — then relays it on
+mainnet. Invoice #1 above was created that way. The relay carried **356 bytes of calldata and no
+invoice plaintext**, asserted against the real mainnet transaction:
+
+```bash
+cd web && node scripts/smoke-mainnet.mjs
+```
+
+Reviewers can confirm the whole deployment agrees with the live site at any time:
+
+```bash
+cd web && VERIFY_CHAIN_ID=677 npm run verify-live
+```
+
+18 assertions covering site reachability, chain agreement, attestor identity, token metadata,
+escrow state and error hygiene.
 
 ### Rehearsal deployment — BOT Chain Testnet (968)
 
