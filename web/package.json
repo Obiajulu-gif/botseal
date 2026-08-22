@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "check-attestor": "node scripts/check-attestor.mjs"
+    "check-attestor": "node scripts/check-attestor.mjs",
+    "verify-live": "node scripts/verify-live.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
