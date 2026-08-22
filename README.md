@@ -1,6 +1,9 @@
 # BotSeal
 
-**Live demo: https://botseal.vercel.app** — BOT Chain Testnet, chain 968.
+**Live on BOT Chain Mainnet (chain 677): https://botseal.vercel.app**
+
+Escrow [`0x358A95Aa014D112CDFbEe5f3eA599BA14B331CBF`](https://scan.botchain.ai/address/0x358A95Aa014D112CDFbEe5f3eA599BA14B331CBF)
+· settling in real USDT · [deployment tx](https://scan.botchain.ai/tx/0x0fc684611748980d7fda42a84ea313b77fa9164d58126e10b36fd4dbab8571ff)
 
 Confidential invoices, settled in **USDT on BOT Chain**.
 
@@ -217,29 +220,55 @@ chain, wallet or key required.
 
 ## Deployed addresses
 
-Live on **BOT Chain Testnet (chain 968)**. Full record in `contracts/deployments/botchain-968.json`.
+### BOT Chain Mainnet — chain 677
+
+The live deployment. Full record in `contracts/deployments/botchain-677.json`.
+
+| Contract | Address |
+|---|---|
+| `BotSealEscrow` | [`0x358A95Aa014D112CDFbEe5f3eA599BA14B331CBF`](https://scan.botchain.ai/address/0x358A95Aa014D112CDFbEe5f3eA599BA14B331CBF) |
+| USDT — real settlement token, 6d | [`0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C`](https://scan.botchain.ai/token/0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C) |
+| Attestor signer | [`0x1399edE7cE143bE5D463471Fa5D09CB8996eB818`](https://scan.botchain.ai/address/0x1399edE7cE143bE5D463471Fa5D09CB8996eB818) |
+
+| Step | Transaction |
+|---|---|
+| Escrow deployment | [`0x0fc68461…8571ff`](https://scan.botchain.ai/tx/0x0fc684611748980d7fda42a84ea313b77fa9164d58126e10b36fd4dbab8571ff) |
+| Attestor configured | [`0xc22688e9…14e3a2`](https://scan.botchain.ai/tx/0xc22688e94458a32169a1927fd197f9ddcf55d5ade1b71e8d6ce5f40dcd14e3a2) |
+| Confidential invoice #1 | [`0xe526bebe…78622b`](https://scan.botchain.ai/tx/0xe526bebee18561909acdcf7848d1b5d00c8b15245192924cf387b49fcb78622b) |
+
+Invoice #1 was created by encrypting a real invoice to the **live production attestor**, which
+decrypted it, recomputed the total from the line items and signed EIP-712 bound to chain 677 and
+this escrow. The relay carried 356 bytes of calldata and no invoice plaintext, asserted against the
+real mainnet transaction. Reproduce with `node web/scripts/smoke-mainnet.mjs`.
+
+Confirm the live site and the chain agree — 18 assertions, no key needed:
+
+```bash
+cd web && VERIFY_CHAIN_ID=677 npm run verify-live
+```
+
+### BOT Chain Testnet — chain 968 (rehearsal)
+
+The mainnet deployment was rehearsed here first, including a complete funded-and-released invoice.
+Still live and reviewable; the settlement token there is a mock with an open `mint()`, so a
+reviewer can exercise the full flow without spending real USDT.
 
 | Contract | Address |
 |---|---|
 | `BotSealEscrow` | [`0x926A0215BC58c4897c5604a7E5eeCf5D4d84cc1D`](https://scan.bohr.life/address/0x926A0215BC58c4897c5604a7E5eeCf5D4d84cc1D) |
-| USDT (test settlement token, 6d) | [`0x358A95Aa014D112CDFbEe5f3eA599BA14B331CBF`](https://scan.bohr.life/address/0x358A95Aa014D112CDFbEe5f3eA599BA14B331CBF) |
-| Attestor signer | [`0x1399edE7cE143bE5D463471Fa5D09CB8996eB818`](https://scan.bohr.life/address/0x1399edE7cE143bE5D463471Fa5D09CB8996eB818) |
-
-A full confidential invoice was created, funded and settled on chain against this deployment:
+| USDT — mock settlement token, 6d | [`0x358A95Aa014D112CDFbEe5f3eA599BA14B331CBF`](https://scan.bohr.life/address/0x358A95Aa014D112CDFbEe5f3eA599BA14B331CBF) |
 
 | Step | Transaction |
 |---|---|
-| Escrow deployment | [`0x3030e64f…331f16`](https://scan.bohr.life/tx/0x3030e64ff56bf820b2192a582dd1c74ead9e78f37b1e1a1dba4619b058331f16) |
-| Attestor configured | [`0x5b483407…e9e42b`](https://scan.bohr.life/tx/0x5b483407e08e65a8a68f9695e24a835aa8e6c16e94d27285c1dac2e7c2e9e42b) |
 | Confidential relay | [`0xaa609e39…a6cfaa`](https://scan.bohr.life/tx/0xaa609e39b4f4565aa2e0468535ce022f5d619af461c90632762ecf5a20a6cfaa) |
 | Funded ($2,510.22) | [`0x5fab4d98…ae0063`](https://scan.bohr.life/tx/0x5fab4d9826eb2a34f80db31cb63520fd8d79ba6a1aef1b63faf113296bae0063) |
 | Released to seller | [`0xedf7ecd2…e225e9`](https://scan.bohr.life/tx/0xedf7ecd22885b4e2d3641179ed4ad22c10d75d7985b981ab97acbda46de225e9) |
 
-The relay carried 356 bytes of calldata and no invoice plaintext. Reproduce with
-`npm run smoke-live:testnet`.
+Reproduce with `npm run smoke-live:testnet`.
 
-Mainnet (chain 677) is configured but nothing is deployed there. It settles in real USDT
-[`0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C`](https://scan.botchain.ai/token/0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C).
+> The mainnet escrow and the testnet mock token share the address string `0x358A95Aa…31CBF`. They
+> are unrelated contracts on different chains — `CREATE` derives the address from deployer plus
+> nonce, and the same deployer sent its first transaction on each.
 
 ---
 
