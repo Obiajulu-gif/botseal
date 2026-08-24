@@ -29,7 +29,11 @@ import {
   CardTitle,
   Spinner,
 } from "@/components/ui/primitives";
-import { formatTokenAmount, useSettlementTokenMetadata } from "@/hooks/use-settlement-token";
+import {
+  formatTokenAmount,
+  useSettlementTokenBalance,
+  useSettlementTokenMetadata,
+} from "@/hooks/use-settlement-token";
 import { useInvoice, useIsBuyer, useIsSeller, useSettlementActions } from "@/hooks/use-invoices";
 import { InvoiceStatus, ZERO_BYTES32, type Invoice } from "@/lib/contracts";
 import { env, isEscrowConfigured } from "@/lib/env";
@@ -159,6 +163,7 @@ function InvoiceDetail({ invoiceId }: { invoiceId: bigint }) {
 
       <aside className="space-y-6">
         <ActionsPanel invoice={invoice} />
+        <PartyBalances invoice={invoice} />
         <Card>
           <CardHeader>
             <CardTitle>Verify on-chain</CardTitle>
@@ -181,6 +186,78 @@ function InvoiceDetail({ invoiceId }: { invoiceId: bigint }) {
         </Card>
       </aside>
     </div>
+  );
+}
+
+/**
+ * Settlement-token balances for both parties to this invoice.
+ *
+ * Shown side by side rather than only for the connected wallet, because the interesting fact about
+ * an escrow is the relationship between the two balances and the amount held in between. On
+ * release the seller's figure moves by exactly the escrowed amount, which is the clearest possible
+ * evidence that settlement did what it claims.
+ *
+ * These are live contract reads, refetched whenever a settlement action invalidates the cache.
+ */
+function PartyBalances({ invoice }: { invoice: Invoice }) {
+  const { address } = useAccount();
+  const { symbol, decimals } = useSettlementTokenMetadata();
+
+  const sellerBalance = useSettlementTokenBalance(invoice.seller);
+  const buyerBalance = useSettlementTokenBalance(invoice.buyer);
+
+  if (!env.settlementTokenAddress) return null;
+
+  const show = (value: bigint | undefined) =>
+    value !== undefined && decimals !== undefined ? formatTokenAmount(value, decimals, 4) : "—";
+
+  const rows = [
+    { role: "Seller", addr: invoice.seller, balance: sellerBalance.data },
+    { role: "Buyer", addr: invoice.buyer, balance: buyerBalance.data },
+  ];
+
+  const escrowed =
+    invoice.tokenAmount > 0n && decimals !== undefined
+      ? formatTokenAmount(invoice.tokenAmount, decimals, 4)
+      : undefined;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Party balances</CardTitle>
+        <CardDescription>Live {symbol} balances for both sides of this invoice.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {rows.map((row) => {
+          const isYou = address && row.addr.toLowerCase() === address.toLowerCase();
+          return (
+            <div key={row.role} className="flex items-baseline justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm text-foreground/80">
+                  {row.role}
+                  {isYou ? <span className="ml-1.5 text-xs text-primary">you</span> : null}
+                </p>
+                <p className="truncate font-mono text-xs text-muted-foreground">
+                  <AddressLink address={row.addr} />
+                </p>
+              </div>
+              <p className="shrink-0 font-mono text-sm font-medium">
+                {show(row.balance)} <span className="text-xs text-muted-foreground">{symbol}</span>
+              </p>
+            </div>
+          );
+        })}
+
+        {escrowed ? (
+          <div className="flex items-baseline justify-between gap-3 border-t border-white/[0.06] pt-3">
+            <p className="text-sm text-foreground/60">Held in escrow</p>
+            <p className="shrink-0 font-mono text-sm font-medium text-primary">
+              {escrowed} <span className="text-xs text-muted-foreground">{symbol}</span>
+            </p>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 

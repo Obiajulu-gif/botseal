@@ -11,10 +11,15 @@
 import Image from "next/image";
 import Link from "next/link";
 import { FilePlus2, LayoutDashboard } from "lucide-react";
-import { useAccount, useConnect, useDisconnect, useSwitchChain } from "wagmi";
+import { useAccount, useBalance, useConnect, useDisconnect, useSwitchChain } from "wagmi";
 
 import { botchain } from "@/lib/chain";
 import { addressUrl, shortenHex } from "@/lib/explorer";
+import {
+  formatTokenAmount,
+  useSettlementTokenBalance,
+  useSettlementTokenMetadata,
+} from "@/hooks/use-settlement-token";
 import { Alert, Badge, Button } from "@/components/ui/primitives";
 
 /**
@@ -94,6 +99,56 @@ export function NetworkBadge() {
   if (!isConnected) return <Badge variant="neutral">Not connected</Badge>;
   if (chainId === botchain.id) return <Badge variant="success">{NETWORK_LABEL}</Badge>;
   return <Badge variant="danger">Wrong network{chainId ? ` · chain ${chainId}` : ""}</Badge>;
+}
+
+/**
+ * The connected wallet's settlement-token and gas balances.
+ *
+ * Both parties need this for different reasons: a buyer needs to know they can cover the invoice
+ * before starting an approve/fund sequence, and a seller wants to see the money actually arrive on
+ * release. Putting it in the header means whichever role is connected sees their own position
+ * without navigating anywhere.
+ *
+ * The settlement-token balance is the headline because that is what invoices settle in; the native
+ * balance is shown second and only matters for gas.
+ */
+export function WalletBalances() {
+  const { address, isConnected } = useAccount();
+  const onCorrectNetwork = useOnCorrectNetwork();
+
+  const { symbol, decimals } = useSettlementTokenMetadata();
+  const tokenBalance = useSettlementTokenBalance(address);
+  const nativeBalance = useBalance({
+    address,
+    chainId: botchain.id,
+    query: { enabled: Boolean(address) },
+  });
+
+  // Off the expected chain the numbers would be read from a different network, which is worse
+  // than showing nothing: the wrong-network banner is already saying what to fix.
+  if (!isConnected || !address || !onCorrectNetwork) return null;
+
+  const token =
+    tokenBalance.data !== undefined && decimals !== undefined
+      ? `${formatTokenAmount(tokenBalance.data, decimals, 2)} ${symbol}`
+      : "—";
+
+  const native = nativeBalance.data
+    ? `${formatTokenAmount(nativeBalance.data.value, nativeBalance.data.decimals, 4)} ${
+        nativeBalance.data.symbol
+      }`
+    : "—";
+
+  return (
+    <div
+      className="hidden items-center gap-2.5 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 lg:flex"
+      title={`Settlement balance ${token} · gas balance ${native}`}
+    >
+      <span className="font-mono text-xs font-medium text-foreground/90">{token}</span>
+      <span aria-hidden="true" className="h-3 w-px bg-white/15" />
+      <span className="font-mono text-xs text-foreground/50">{native}</span>
+    </div>
+  );
 }
 
 /**
@@ -198,6 +253,7 @@ export function SiteHeader() {
           </nav>
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
+          <WalletBalances />
           <div className="hidden sm:block">
             <NetworkBadge />
           </div>
