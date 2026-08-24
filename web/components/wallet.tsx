@@ -11,15 +11,32 @@
 import Image from "next/image";
 import Link from "next/link";
 import { FilePlus2, LayoutDashboard } from "lucide-react";
-import { useAccount, useChainId, useConnect, useDisconnect, useSwitchChain } from "wagmi";
+import { useAccount, useConnect, useDisconnect, useSwitchChain } from "wagmi";
 
 import { botchain } from "@/lib/chain";
 import { addressUrl, shortenHex } from "@/lib/explorer";
 import { Alert, Badge, Button } from "@/components/ui/primitives";
 
+/**
+ * The chain the wallet is *actually* on.
+ *
+ * Deliberately not `useChainId()`. That hook reads the chain from the wagmi config, and this
+ * config declares exactly one chain, so it returns {@link botchain.id} no matter which network
+ * the wallet is really connected to. Gating on it produced the worst possible combination: a
+ * green "BOT Chain Mainnet" badge, no wrong-network banner, and every write then failing with
+ * viem's ChainMismatchError — because viem compares against the connector, not the config.
+ *
+ * `useAccount().chainId` is the connector's chain, which is what viem checks. It is `undefined`
+ * while disconnected, and the wallet's real chain id otherwise, including chains this app does
+ * not declare.
+ */
+function useWalletChainId(): number | undefined {
+  return useAccount().chainId;
+}
+
 export function useOnCorrectNetwork(): boolean {
-  const chainId = useChainId();
   const { isConnected } = useAccount();
+  const chainId = useWalletChainId();
   return isConnected && chainId === botchain.id;
 }
 
@@ -71,12 +88,12 @@ export function ConnectButton() {
 const NETWORK_LABEL = botchain.testnet ? botchain.name : `${botchain.name} Mainnet`;
 
 export function NetworkBadge() {
-  const chainId = useChainId();
   const { isConnected } = useAccount();
+  const chainId = useWalletChainId();
 
   if (!isConnected) return <Badge variant="neutral">Not connected</Badge>;
   if (chainId === botchain.id) return <Badge variant="success">{NETWORK_LABEL}</Badge>;
-  return <Badge variant="danger">Chain {chainId}</Badge>;
+  return <Badge variant="danger">Wrong network{chainId ? ` · chain ${chainId}` : ""}</Badge>;
 }
 
 /**
@@ -84,8 +101,8 @@ export function NetworkBadge() {
  * Renders nothing when disconnected — that state is handled per page.
  */
 export function WrongNetworkBanner() {
-  const chainId = useChainId();
   const { isConnected } = useAccount();
+  const chainId = useWalletChainId();
   const { switchChain, isPending } = useSwitchChain();
 
   if (!isConnected || chainId === botchain.id) return null;
@@ -94,8 +111,11 @@ export function WrongNetworkBanner() {
     <div className="border-b border-destructive/30 bg-destructive/10 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
         <p className="text-sm text-red-200">
-          Wrong network: your wallet is on chain {chainId}. This app runs on {botchain.name}
-          (chain {botchain.id}). All actions are disabled.
+          Wrong network:{" "}
+          {chainId === undefined
+            ? "your wallet has not reported a chain yet"
+            : `your wallet is on chain ${chainId}`}
+          . This app runs on {botchain.name} (chain {botchain.id}). All actions are disabled.
         </p>
         <Button
           size="sm"
@@ -116,7 +136,7 @@ export function WrongNetworkBanner() {
  */
 export function RequireWallet({ children }: { children: React.ReactNode }) {
   const { isConnected } = useAccount();
-  const chainId = useChainId();
+  const chainId = useWalletChainId();
 
   if (!isConnected) {
     return (
